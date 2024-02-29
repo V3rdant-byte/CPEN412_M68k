@@ -4,9 +4,9 @@ editor if you plan to continue editing the block that represents it in
 the Block Editor! File corruption is VERY likely to occur.
 */
 /*
-Copyright (C) 2019  Intel Corporation. All rights reserved.
+Copyright (C) 2018  Intel Corporation. All rights reserved.
 Your use of Intel Corporation's design tools, logic functions 
-and other software and tools, and any partner logic 
+and other software and tools, and its AMPP partner logic 
 functions, and any output files from any of the foregoing 
 (including device programming or simulation files), and any 
 associated documentation or information are expressly subject 
@@ -16,8 +16,7 @@ the Intel FPGA IP License Agreement, or other applicable license
 agreement, including, without limitation, that your use is for
 the sole purpose of programming logic devices manufactured by
 Intel and sold by Intel or its authorized distributors.  Please
-refer to the applicable agreement for further details, at
-https://fpgasoftware.intel.com/eula.
+refer to the applicable agreement for further details.
 */
 //#pragma file_not_in_maxplusii_format
 (header "graphic" (version "1.4"))
@@ -136,7 +135,7 @@ https://fpgasoftware.intel.com/eula.
 		(pt 48 16)
 		(output)
 		(text "OUT" (rect 32 7 49 19)(font "Courier New" (bold))(invisible))
-		(text "OUT" (rect 32 7 46 19)(font "Courier New" (bold))(invisible))
+		(text "OUT" (rect 32 7 49 19)(font "Courier New" (bold))(invisible))
 		(line (pt 39 16)(pt 48 16))
 	)
 	(drawing
@@ -147,57 +146,32 @@ https://fpgasoftware.intel.com/eula.
 	)
 )
 (symbol
-	(rect 400 96 616 224)
-	(text "OnChipRom16KWord" (rect 46 0 192 16)(font "Arial" (font_size 10)))
-	(text "inst1" (rect 8 112 31 124)(font "Arial" ))
+	(rect 432 96 616 176)
+	(text "OnChipRom16KWord" (rect 5 0 110 12)(font "Arial" ))
+	(text "inst1" (rect 8 64 30 81)(font "Intel Clear" ))
 	(port
 		(pt 0 32)
 		(input)
-		(text "address[13..0]" (rect 0 0 82 14)(font "Arial" (font_size 8)))
-		(text "address[13..0]" (rect 4 18 86 32)(font "Arial" (font_size 8)))
-		(line (pt 0 32)(pt 88 32)(line_width 3))
+		(text "address[13..0]" (rect 0 0 70 12)(font "Arial" ))
+		(text "address[13..0]" (rect 21 27 91 39)(font "Arial" ))
+		(line (pt 0 32)(pt 16 32)(line_width 3))
 	)
 	(port
-		(pt 0 112)
+		(pt 0 48)
 		(input)
-		(text "clock" (rect 0 0 29 14)(font "Arial" (font_size 8)))
-		(text "clock" (rect 4 98 33 112)(font "Arial" (font_size 8)))
-		(line (pt 0 112)(pt 80 112))
+		(text "clock" (rect 0 0 25 12)(font "Arial" ))
+		(text "clock" (rect 21 43 46 55)(font "Arial" ))
+		(line (pt 0 48)(pt 16 48))
 	)
 	(port
-		(pt 216 32)
+		(pt 184 32)
 		(output)
-		(text "q[15..0]" (rect 0 0 42 14)(font "Arial" (font_size 8)))
-		(text "q[15..0]" (rect 177 18 219 32)(font "Arial" (font_size 8)))
-		(line (pt 216 32)(pt 136 32)(line_width 3))
+		(text "q[15..0]" (rect 0 0 37 12)(font "Arial" ))
+		(text "q[15..0]" (rect 132 27 169 39)(font "Arial" ))
+		(line (pt 184 32)(pt 168 32)(line_width 3))
 	)
 	(drawing
-		(text "16 bits" (rect 109 24 121 57)(font "Arial" )(vertical))
-		(text "16384 words" (rect 120 13 132 74)(font "Arial" )(vertical))
-		(text "Block type: AUTO" (rect 48 114 137 126)(font "Arial" ))
-		(line (pt 104 24)(pt 136 24))
-		(line (pt 136 24)(pt 136 96))
-		(line (pt 136 96)(pt 104 96))
-		(line (pt 104 96)(pt 104 24))
-		(line (pt 118 58)(pt 123 63))
-		(line (pt 118 62)(pt 123 57))
-		(line (pt 88 27)(pt 96 27))
-		(line (pt 96 27)(pt 96 39))
-		(line (pt 96 39)(pt 88 39))
-		(line (pt 88 39)(pt 88 27))
-		(line (pt 88 34)(pt 90 36))
-		(line (pt 90 36)(pt 88 38))
-		(line (pt 80 36)(pt 88 36))
-		(line (pt 96 32)(pt 104 32)(line_width 3))
-		(line (pt 80 112)(pt 80 36))
-		(line (pt 0 0)(pt 217 0))
-		(line (pt 217 0)(pt 217 130))
-		(line (pt 0 130)(pt 217 130))
-		(line (pt 0 0)(pt 0 130))
-		(line (pt 0 0)(pt 0 0))
-		(line (pt 0 0)(pt 0 0))
-		(line (pt 0 0)(pt 0 0))
-		(line (pt 0 0)(pt 0 0))
+		(rectangle (rect 16 16 168 64))
 	)
 )
 (connector
@@ -208,15 +182,6 @@ https://fpgasoftware.intel.com/eula.
 (connector
 	(pt 792 112)
 	(pt 792 40)
-)
-(connector
-	(pt 400 128)
-	(pt 256 128)
-	(bus)
-)
-(connector
-	(pt 400 208)
-	(pt 336 208)
 )
 (connector
 	(pt 616 128)
@@ -238,6 +203,23 @@ https://fpgasoftware.intel.com/eula.
 (connector
 	(pt 264 40)
 	(pt 256 40)
+)
+(connector
+	(pt 432 128)
+	(pt 256 128)
+	(bus)
+)
+(connector
+	(pt 392 208)
+	(pt 336 208)
+)
+(connector
+	(pt 392 208)
+	(pt 392 144)
+)
+(connector
+	(pt 392 144)
+	(pt 432 144)
 )
 (junction (pt 264 208))
 (junction (pt 264 40))
