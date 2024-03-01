@@ -15,14 +15,14 @@ int main(int argc, char *argv[])
   FILE *DestFilePtr;
 
     
-  if((SourceFilePtr =  fopen("D:\\CPEN412\\M68k\\Programs\\DeMoCo\\lab2t.hex", "r")) == NULL)	{
+  if((SourceFilePtr =  fopen("D:\\CPEN412\\M68k\\Programs\\DeMoCo\\lab3.hex", "r")) == NULL)	{
 		fprintf(stderr, "Cannot Open S-Record File 'D:\\CPEN412\\M68k\\Programs\\DeMoCo\\lab2t.hex' for conversion to '.MIF' format\n") ;
 		fprintf(stderr, "Hit any key to exit.....") ;
 		getch() ;
 		return 0 ;
 	}
 	
-	if((DestFilePtr = fopen("D:\\CPEN412\\M68k\\Programs\\DeMoCo\\lab2t.mif","w")) == NULL)	{
+	if((DestFilePtr = fopen("D:\\CPEN412\\M68k\\Programs\\DeMoCo\\lab3.mif","w")) == NULL)	{
 		fprintf(stderr, "Cannot Open/Create file 'D:\\CPEN412\\M68k\\Programs\\DeMoCo\\lab2t.mif' to store output of file conversion\n") ;
 		fprintf(stderr, "Hit any key to exit.....") ;
 		getch() ;

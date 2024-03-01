@@ -544,6 +544,85 @@ int WriteSPIChar(int c)
     return read_data;            
 }
 
+void SendFlashCmd(int cmd)
+{
+    Enable_SPI_CS();
+    WriteSPIChar(cmd); 
+    Disable_SPI_CS();
+}
+
+void SendFlashCmdAndAddr(int cmd, int addr)
+{
+    WriteSPIChar(cmd);
+    WriteSPIChar(addr >> 16);
+    WriteSPIChar(addr >> 8);
+    WriteSPIChar(addr);
+}
+
+void WaitFlashIdle(void)
+{
+    Enable_SPI_CS();
+    WriteSPIChar(0x05);  // read status
+    while(WriteSPIChar(0x00) & 0x01){}; // wait until idle
+    Disable_SPI_CS();
+}
+
+void EraseSPIFlashChip(void)
+{
+    SendFlashCmd(0x06);  // write enable
+    SendFlashCmd(0xC7);  // erase chip
+    WaitFlashIdle();
+}
+
+void SPIFlashProgram(int AddressOffset, int ByteData)
+{
+    SendFlashCmd(0x06);  // write enable
+
+    Enable_SPI_CS();
+    SendFlashCmdAndAddr(0x02, AddressOffset); // page program
+    // if (AddressOffset == 0) {
+    //     printf("ByteData: 0x%08x", ByteData);
+    // }
+    WriteSPIChar(ByteData); // write byte data
+    Disable_SPI_CS();
+
+    WaitFlashIdle();  // wait idle
+}
+
+void WriteSPIFlashData(int FlashAddress, unsigned char *MemoryAddress, int size)
+{
+    int addressOffset = 0;
+    for (addressOffset = 0; addressOffset < size; addressOffset++) {
+        SPIFlashProgram(addressOffset + FlashAddress, MemoryAddress[addressOffset]);
+        if (addressOffset % 32768 == 0){
+            printf(".");
+        }
+    }
+}
+
+int SPIFlashRead(int AddressOffset)
+{
+    int data;
+    Enable_SPI_CS();
+    SendFlashCmdAndAddr(0x03, AddressOffset); // read
+    
+    data = WriteSPIChar(0x00); // dummy
+    // if (AddressOffset == 0) {
+    //     printf("ByteData: 0x%08x", data);
+    // }
+    Disable_SPI_CS();
+    return data;
+}
+
+void ReadSPIFlashData(int FlashAddress, unsigned char *MemoryAddress, int size)
+{
+    int addressOffset;
+    for (addressOffset = 0; addressOffset < size; addressOffset++)
+    {
+        MemoryAddress[addressOffset] = SPIFlashRead(FlashAddress+addressOffset);
+    }
+}
+
 /*******************************************************************
 ** Write a program to SPI Flash Chip from memory and verify by reading back
 ********************************************************************/
@@ -554,7 +633,36 @@ void ProgramFlashChip(void)
     // TODO : put your code here to program the 1st 256k of ram (where user program is held at hex 08000000) to SPI flash chip
     // TODO : then verify by reading it back and comparing to memory
     //
-     
+    unsigned char * dataPtr = 0x08000000;
+    int flashAddress = 0;
+    int i = 0;
+    unsigned char readBuffer[256];
+    int bufferOffset = 0;
+
+    printf("\n\rErasing\n\r");
+    EraseSPIFlashChip();
+
+    printf("Writing Program to memory \n\r");
+    WriteSPIFlashData(0, dataPtr, 262144); // 256kB = 256 * 1024 = 262144
+    printf("Writing Done\n\r");
+    
+    dataPtr = 0x08000000; // reset address
+    printf("Reading Program from memory\n\r");
+    for (i = 0; i < 1024; i++) {
+        ReadSPIFlashData(flashAddress, readBuffer, 256);
+        for (bufferOffset = 0; bufferOffset < 256; bufferOffset++){
+            if (dataPtr[bufferOffset] != readBuffer[bufferOffset]){
+                printf("\r\nERROR: DATA Mismatch at addr 0x%08x. WRITE: 0x%02x READ: 0x%02x\r\n", &dataPtr[bufferOffset], dataPtr[bufferOffset], readBuffer[bufferOffset]);
+                return;
+            }
+        }
+        flashAddress += 256;
+        dataPtr += 256;
+        if (i % 128 == 0){
+            printf(".");
+        }
+    }
+    printf("PASS\n\r");
 }
 
 /*************************************************************************
@@ -562,12 +670,26 @@ void ProgramFlashChip(void)
 **************************************************************************/
 void LoadFromFlashChip(void)
 {
+    unsigned int flashAddress = 0;
+    unsigned char * dataPtr = 0x08000000;
+    unsigned int i = 0, j = 0;
+    unsigned char readBuffer[256];
     printf("\r\nLoading Program From SPI Flash....");
 
     //
     // TODO : put your code here to read 256k of data from SPI flash chip and store in user ram starting at hex 08000000
     //
 
+    for (i = 0; i < 1024; i++){
+        ReadSPIFlashData(flashAddress, readBuffer, 256);
+        for (j = 0; j < 256; j++){
+            dataPtr[j] = readBuffer[j];
+        }
+        dataPtr+=256;
+        flashAddress+=256;
+        printf(".");
+    }
+    printf("\r\nDone loading.\r\n");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
