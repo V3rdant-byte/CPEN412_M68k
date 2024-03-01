@@ -14,8 +14,8 @@
 ; //
 ; // The working 68k system SOF file posted on canvas that you can use for your pre-lab
 ; // is based around Dram so #define accordingly before building
-; #define StartOfExceptionVectorTable 0x08030000
-; //#define StartOfExceptionVectorTable 0x0B000000
+; //#define StartOfExceptionVectorTable 0x08030000
+; #define StartOfExceptionVectorTable 0x0B000000
 ; /**********************************************************************************************
 ; **	Parallel port addresses
 ; **********************************************************************************************/
@@ -620,7 +620,7 @@ _LCDLine2Message:
 _InstallExceptionHandler:
        link      A6,#-4
 ; volatile long int *RamVectorAddress = (volatile long int *)(StartOfExceptionVectorTable) ;   // pointer to the Ram based interrupt vector table created in Cstart in debug monitor
-       move.l    #134414336,-4(A6)
+       move.l    #184549376,-4(A6)
 ; RamVectorAddress[level] = (long int *)(function_ptr);                       // install the address of our function into the exception table
        move.l    -4(A6),A0
        move.l    12(A6),D0
@@ -636,397 +636,109 @@ _InstallExceptionHandler:
 ; {
        xdef      _main
 _main:
-       link      A6,#-4
-       movem.l   D2/D3/D4/D5/D6/A2,-(A7)
-       lea       _printf.L,A2
-; //     unsigned int row, i=0, count=0, counter1=1;
-; //     char c, text[150] ;
-; unsigned int start ;
-; unsigned int end ;
-; char input_char;
-; unsigned long int data;
-; unsigned long int write_data;
-; unsigned long long int *ramptr;
-; // 	int PassFailFlag = 1 ;
-; //     i = x = y = z = PortA_Count =0;
-; //     Timer1Count = Timer2Count = Timer3Count = Timer4Count = 0;
-; // InstallExceptionHandler(PIA_ISR, 25) ;          // install interrupt handler for PIAs 1 and 2 on level 1 IRQ
-; // InstallExceptionHandler(ACIA_ISR, 26) ;		    // install interrupt handler for ACIA on level 2 IRQ
-; // InstallExceptionHandler(Timer_ISR, 27) ;		// install interrupt handler for Timers 1-4 on level 3 IRQ
-; // InstallExceptionHandler(Key2PressISR, 28) ;	    // install interrupt handler for Key Press 2 on DE1 board for level 4 IRQ
-; // InstallExceptionHandler(Key1PressISR, 29) ;	    // install interrupt handler for Key Press 1 on DE1 board for level 5 IRQ
-; //     Timer1Data = 0x10;		// program time delay into timers 1-4
-; //     Timer2Data = 0x20;
-; //     Timer3Data = 0x15;
-; //     Timer4Data = 0x25;
-; //     Timer1Control = 3;		// write 3 to control register to Bit0 = 1 (enable interrupt from timers) 1 - 4 and allow them to count Bit 1 = 1
-; //     Timer2Control = 3;
-; //     Timer3Control = 3;
-; //     Timer4Control = 3;
-; //     Init_LCD();             // initialise the LCD display to use a parallel data interface and 2 lines of display
+       link      A6,#-172
+       move.l    A2,-(A7)
+       lea       _InstallExceptionHandler.L,A2
+; unsigned int row, i=0, count=0, counter1=1;
+       clr.l     -168(A6)
+       clr.l     -164(A6)
+       move.l    #1,-160(A6)
+; char c, text[150] ;
+; // unsigned int start ;
+; // unsigned int end ;
+; // char input_char;
+; // unsigned long int data;
+; // unsigned long int write_data;
+; // unsigned long long int *ramptr;
+; int PassFailFlag = 1 ;
+       move.l    #1,-4(A6)
+; i = x = y = z = PortA_Count =0;
+       clr.l     _PortA_Count.L
+       clr.l     _z.L
+       clr.l     _y.L
+       clr.l     _x.L
+       clr.l     -168(A6)
+; Timer1Count = Timer2Count = Timer3Count = Timer4Count = 0;
+       clr.b     _Timer4Count.L
+       clr.b     _Timer3Count.L
+       clr.b     _Timer2Count.L
+       clr.b     _Timer1Count.L
+; InstallExceptionHandler(PIA_ISR, 25) ;          // install interrupt handler for PIAs 1 and 2 on level 1 IRQ
+       pea       25
+       pea       _PIA_ISR.L
+       jsr       (A2)
+       addq.w    #8,A7
+; InstallExceptionHandler(ACIA_ISR, 26) ;		    // install interrupt handler for ACIA on level 2 IRQ
+       pea       26
+       pea       _ACIA_ISR.L
+       jsr       (A2)
+       addq.w    #8,A7
+; InstallExceptionHandler(Timer_ISR, 27) ;		// install interrupt handler for Timers 1-4 on level 3 IRQ
+       pea       27
+       pea       _Timer_ISR.L
+       jsr       (A2)
+       addq.w    #8,A7
+; InstallExceptionHandler(Key2PressISR, 28) ;	    // install interrupt handler for Key Press 2 on DE1 board for level 4 IRQ
+       pea       28
+       pea       _Key2PressISR.L
+       jsr       (A2)
+       addq.w    #8,A7
+; InstallExceptionHandler(Key1PressISR, 29) ;	    // install interrupt handler for Key Press 1 on DE1 board for level 5 IRQ
+       pea       29
+       pea       _Key1PressISR.L
+       jsr       (A2)
+       addq.w    #8,A7
+; Timer1Data = 0x10;		// program time delay into timers 1-4
+       move.b    #16,4194352
+; Timer2Data = 0x20;
+       move.b    #32,4194356
+; Timer3Data = 0x15;
+       move.b    #21,4194360
+; Timer4Data = 0x25;
+       move.b    #37,4194364
+; Timer1Control = 3;		// write 3 to control register to Bit0 = 1 (enable interrupt from timers) 1 - 4 and allow them to count Bit 1 = 1
+       move.b    #3,4194354
+; Timer2Control = 3;
+       move.b    #3,4194358
+; Timer3Control = 3;
+       move.b    #3,4194362
+; Timer4Control = 3;
+       move.b    #3,4194366
+; Init_LCD();             // initialise the LCD display to use a parallel data interface and 2 lines of display
+       jsr       _Init_LCD
 ; Init_RS232() ;          // initialise the RS232 port for use with hyper terminal
        jsr       _Init_RS232
-; // /*************************************************************************************************
-; // **  Test of scanf function
-; // *************************************************************************************************/
-; //     scanflush() ;                       // flush any text that may have been typed ahead
-; //     printf("\r\nEnter Integer: ") ;
-; //     scanf("%d", &i) ;
-; //     printf("You entered %d", i) ;
-; //     sprintf(text, "Hello CPEN 412 Student") ;
-; //     LCDLine1Message(text) ;
-; //     printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
-; //     printf("\r\nYour LCD should be displaying") ;
-; //     // address input
-; //     // word and long input should be aligned to even addresses
-; do{
-main_1:
-; printf("\r\nstart Address from 0x08020000 to 0x08030000): ");
-       pea       @mupde1_1.L
-       jsr       (A2)
-       addq.w    #4,A7
-; start = Get8HexDigits(0);
-       clr.l     -(A7)
-       jsr       _Get8HexDigits
-       addq.w    #4,A7
-       move.l    D0,D5
-       cmp.l     #134348800,D5
-       blo       main_1
-       cmp.l     #134414336,D5
-       bhi       main_1
-; } while (0x08020000 > start || 0x08030000 < start);
-; do{
-main_3:
-; printf("\r\nend Address from 0x08020000 to 0x08030000): ");
-       pea       @mupde1_2.L
-       jsr       (A2)
-       addq.w    #4,A7
-; end = Get8HexDigits(0);
-       clr.l     -(A7)
-       jsr       _Get8HexDigits
-       addq.w    #4,A7
-       move.l    D0,D6
-       cmp.l     D6,D5
-       bhi       main_3
-       cmp.l     #134414336,D6
-       bhi       main_3
-; } while (start > end || end > 0x08030000);
-; // test data pattern
-; while(1){
-main_5:
-; FlushKeyboard();
-       jsr       _FlushKeyboard
-; printf("\r\nChoose test pattern: \r\na: 55\r\nb: AA\r\nc: FF\r\nd: 00");
-       pea       @mupde1_3.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("\r\n#");
-       pea       @mupde1_4.L
-       jsr       (A2)
-       addq.w    #4,A7
-; input_char = toupper(_getch());
-       move.l    D0,-(A7)
-       jsr       __getch
-       move.l    D0,D1
-       move.l    (A7)+,D0
-       move.l    D1,-(A7)
-       jsr       _toupper
-       addq.w    #4,A7
-       move.b    D0,D4
-; if(input_char == 'a'){
-       cmp.b     #97,D4
-       bne.s     main_8
-; data = 0x55;
-       moveq     #85,D2
-; printf("\r\nData: 0x%x", data);
-       move.l    D2,-(A7)
-       pea       @mupde1_5.L
-       jsr       (A2)
-       addq.w    #8,A7
-; break;
-       bra       main_7
-main_8:
-; }
-; else if(input_char == 'b'){
-       cmp.b     #98,D4
-       bne.s     main_10
-; data = 0xAA;
-       move.l    #170,D2
-; printf("\r\nData: 0x%x", data);
-       move.l    D2,-(A7)
-       pea       @mupde1_6.L
-       jsr       (A2)
-       addq.w    #8,A7
-; break;
-       bra       main_7
-main_10:
-; }
-; else if(input_char == 'c'){
-       cmp.b     #99,D4
-       bne.s     main_12
-; data = 0xFF;
-       move.l    #255,D2
-; printf("\r\nData: 0x%x", data);
-       move.l    D2,-(A7)
-       pea       @mupde1_7.L
-       jsr       (A2)
-       addq.w    #8,A7
-; break;
-       bra.s     main_7
-main_12:
-; }
-; else if(input_char == 'd'){
-       cmp.b     #100,D4
-       bne.s     main_14
-; data = 0x00;
-       clr.l     D2
-; printf("\r\nData: 0x%x", data);
-       move.l    D2,-(A7)
-       pea       @mupde1_8.L
-       jsr       (A2)
-       addq.w    #8,A7
-; break;
-       bra.s     main_7
-main_14:
-       bra       main_5
-main_7:
-; }
-; }
-; // test data size selection
-; while(1)    {
-main_16:
-; FlushKeyboard();
-       jsr       _FlushKeyboard
-; printf("\r\nEnter 'B', for bytes, 'W' for words, or 'L' for long words: ");
-       pea       @mupde1_9.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("\r\n#");
-       pea       @mupde1_10.L
-       jsr       (A2)
-       addq.w    #4,A7
-; input_char = toupper(_getch());
-       move.l    D0,-(A7)
-       jsr       __getch
-       move.l    D0,D1
-       move.l    (A7)+,D0
-       move.l    D1,-(A7)
-       jsr       _toupper
-       addq.w    #4,A7
-       move.b    D0,D4
-; if(input_char == 'B'){
-       cmp.b     #66,D4
-       bne.s     main_19
-; printf("\r\nBytes");
-       pea       @mupde1_11.L
-       jsr       (A2)
-       addq.w    #4,A7
-; break;
-       bra       main_18
-main_19:
-; }
-; else if(input_char == 'W'){
-       cmp.b     #87,D4
-       bne.s     main_21
-; printf("\r\nWords");
-       pea       @mupde1_12.L
-       jsr       (A2)
-       addq.w    #4,A7
-; data = data | data << 8;
-       move.l    D2,D0
-       lsl.l     #8,D0
-       or.l      D0,D2
-; break;
-       bra       main_18
-main_21:
-; }
-; else if(input_char == 'L'){
-       cmp.b     #76,D4
-       bne       main_23
-; printf("\r\nLong Words");
-       pea       @mupde1_13.L
-       jsr       (A2)
-       addq.w    #4,A7
-; data = data | data << 8 | data << 16 | data << 24;
-       move.l    D2,D0
-       move.l    D2,D1
-       lsl.l     #8,D1
-       or.l      D1,D0
-       move.l    D2,D1
-       lsl.l     #8,D1
-       lsl.l     #8,D1
-       or.l      D1,D0
-       move.l    D2,D1
-       lsl.l     #8,D1
-       lsl.l     #8,D1
-       lsl.l     #8,D1
-       or.l      D1,D0
-       move.l    D0,D2
-; break;
-       bra.s     main_18
-main_23:
-       bra       main_16
-main_18:
-; }
-; }
-; // start writing
-; // unsigned int counter = 0x900;
-; ramptr = start;
-       move.l    D5,D3
-; while(1){
-main_25:
-; if (ramptr > end){
-       cmp.l     D6,D3
-       bls.s     main_28
-; printf("\r\nWrite Finished. Read starts.");
-       pea       @mupde1_14.L
-       jsr       (A2)
-       addq.w    #4,A7
-; break;
-       bra.s     main_27
-main_28:
-; }
-; *ramptr = data;
-       move.l    D3,A0
-       move.l    D2,(A0)
-; // counter++;
-; // Dont check every time, just check some time incl first time
-; // if (counter == 0x901){
-; //     printf("\r\nWrite: 0x%x to addr 0x%x", *ramptr, ramptr);
-; //     counter = 1;
-; // }
-; // Increment address
-; ramptr++;
-       addq.l    #4,D3
-       bra       main_25
-main_27:
-; }
-; // start reading
-; ramptr = start;
-       move.l    D5,D3
-; // Reset counter to default
-; // counter = 0x900;
-; // Read loop
-; while(1){
-main_30:
-; // When end addr is reached
-; if (ramptr > end){
-       cmp.l     D6,D3
-       bls.s     main_33
-; printf("\r\nRead complete.");
-       pea       @mupde1_15.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("\r\nPASS: Mem test completed with no errors.");
-       pea       @mupde1_16.L
-       jsr       (A2)
-       addq.w    #4,A7
-; break;
-       bra       main_32
-main_33:
-; }
-; // Read check every address to specified data by user
-; if (*ramptr != data){
-       move.l    D3,A0
-       cmp.l     (A0),D2
-       beq.s     main_35
-; printf("\r\nERROR: Address 0x%x data is 0x%x but should be 0x%x", ramptr, *ramptr, data);
-       move.l    D2,-(A7)
-       move.l    D3,A0
-       move.l    (A0),-(A7)
-       move.l    D3,-(A7)
-       pea       @mupde1_17.L
-       jsr       (A2)
-       add.w     #16,A7
-; printf("\r\nFAIL: Mem test did not complete successfully.");
-       pea       @mupde1_18.L
-       jsr       (A2)
-       addq.w    #4,A7
-; break;
-       bra.s     main_32
-main_35:
-; }
-; // counter++;
-; // // Dont check every time, just check some time incl first time
-; // if (counter == 0x8cc){
-; //     printf("\r\nRead: Address 0x%x data is 0x%x", ramptr, *ramptr);
-; //     counter = 1;
-; // }
-; ramptr++;
-       addq.l    #4,D3
-       bra       main_30
-main_32:
-; }
-; while(1)
-main_37:
-       bra       main_37
-; ;
+; /*************************************************************************************************
+; **  Test of scanf function
+; *************************************************************************************************/
+; scanflush() ;                       // flush any text that may have been typed ahead
+       jsr       _scanflush
+; // printf("\r\nEnter Integer: ") ;
+; // scanf("%d", &i) ;
+; // printf("You entered %d", i) ;
+; // sprintf(text, "Hello CPEN 412 Student") ;
+; // LCDLine1Message(text) ;
+; // printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
+; // printf("\r\nYour LCD should be displaying") ;
+; // while(1)
+; //     ;
 ; // programs should NOT exit as there is nothing to Exit TO !!!!!!
 ; // There is no OS - just press the reset button to end program and call debug
+; /*************************************************************************************************
+; **  Test of SPI function
+; *************************************************************************************************/
+; printf("User program here \r\n");
+       pea       @mupde1_1.L
+       jsr       _printf
+       addq.w    #4,A7
+; while(1);
+main_1:
+       bra       main_1
 ; }
        section   const
 @mupde1_1:
-       dc.b      13,10,115,116,97,114,116,32,65,100,100,114,101
-       dc.b      115,115,32,102,114,111,109,32,48,120,48,56,48
-       dc.b      50,48,48,48,48,32,116,111,32,48,120,48,56,48
-       dc.b      51,48,48,48,48,41,58,32,0
-@mupde1_2:
-       dc.b      13,10,101,110,100,32,65,100,100,114,101,115
-       dc.b      115,32,102,114,111,109,32,48,120,48,56,48,50
-       dc.b      48,48,48,48,32,116,111,32,48,120,48,56,48,51
-       dc.b      48,48,48,48,41,58,32,0
-@mupde1_3:
-       dc.b      13,10,67,104,111,111,115,101,32,116,101,115
-       dc.b      116,32,112,97,116,116,101,114,110,58,32,13,10
-       dc.b      97,58,32,53,53,13,10,98,58,32,65,65,13,10,99
-       dc.b      58,32,70,70,13,10,100,58,32,48,48,0
-@mupde1_4:
-       dc.b      13,10,35,0
-@mupde1_5:
-       dc.b      13,10,68,97,116,97,58,32,48,120,37,120,0
-@mupde1_6:
-       dc.b      13,10,68,97,116,97,58,32,48,120,37,120,0
-@mupde1_7:
-       dc.b      13,10,68,97,116,97,58,32,48,120,37,120,0
-@mupde1_8:
-       dc.b      13,10,68,97,116,97,58,32,48,120,37,120,0
-@mupde1_9:
-       dc.b      13,10,69,110,116,101,114,32,39,66,39,44,32,102
-       dc.b      111,114,32,98,121,116,101,115,44,32,39,87,39
-       dc.b      32,102,111,114,32,119,111,114,100,115,44,32
-       dc.b      111,114,32,39,76,39,32,102,111,114,32,108,111
-       dc.b      110,103,32,119,111,114,100,115,58,32,0
-@mupde1_10:
-       dc.b      13,10,35,0
-@mupde1_11:
-       dc.b      13,10,66,121,116,101,115,0
-@mupde1_12:
-       dc.b      13,10,87,111,114,100,115,0
-@mupde1_13:
-       dc.b      13,10,76,111,110,103,32,87,111,114,100,115,0
-@mupde1_14:
-       dc.b      13,10,87,114,105,116,101,32,70,105,110,105,115
-       dc.b      104,101,100,46,32,82,101,97,100,32,115,116,97
-       dc.b      114,116,115,46,0
-@mupde1_15:
-       dc.b      13,10,82,101,97,100,32,99,111,109,112,108,101
-       dc.b      116,101,46,0
-@mupde1_16:
-       dc.b      13,10,80,65,83,83,58,32,77,101,109,32,116,101
-       dc.b      115,116,32,99,111,109,112,108,101,116,101,100
-       dc.b      32,119,105,116,104,32,110,111,32,101,114,114
-       dc.b      111,114,115,46,0
-@mupde1_17:
-       dc.b      13,10,69,82,82,79,82,58,32,65,100,100,114,101
-       dc.b      115,115,32,48,120,37,120,32,100,97,116,97,32
-       dc.b      105,115,32,48,120,37,120,32,98,117,116,32,115
-       dc.b      104,111,117,108,100,32,98,101,32,48,120,37,120
-       dc.b      0
-@mupde1_18:
-       dc.b      13,10,70,65,73,76,58,32,77,101,109,32,116,101
-       dc.b      115,116,32,100,105,100,32,110,111,116,32,99
-       dc.b      111,109,112,108,101,116,101,32,115,117,99,99
-       dc.b      101,115,115,102,117,108,108,121,46,0
+       dc.b      85,115,101,114,32,112,114,111,103,114,97,109
+       dc.b      32,104,101,114,101,32,13,10,0
        section   bss
        xdef      _i
 _i:
@@ -1055,5 +767,5 @@ _Timer3Count:
        xdef      _Timer4Count
 _Timer4Count:
        ds.b      1
-       xref      _toupper
+       xref      _scanflush
        xref      _printf

@@ -1309,7 +1309,8 @@ _EraseSPIFlashChip:
 ; {
        xdef      _SPIFlashProgram
 _SPIFlashProgram:
-       link      A6,#0
+       link      A6,#-4
+; int readbackdata;
 ; SendFlashCmd(0x06);  // write enable
        pea       6
        jsr       _SendFlashCmd
@@ -1324,10 +1325,11 @@ _SPIFlashProgram:
 ; // if (AddressOffset == 0) {
 ; //     printf("ByteData: 0x%08x", ByteData);
 ; // }
-; WriteSPIChar(ByteData); // write byte data
+; readbackdata = WriteSPIChar(ByteData); // write byte data
        move.l    12(A6),-(A7)
        jsr       _WriteSPIChar
        addq.w    #4,A7
+       move.l    D0,-4(A6)
 ; Disable_SPI_CS();
        move.b    #255,4227112
 ; WaitFlashIdle();  // wait idle
@@ -1358,13 +1360,9 @@ WriteSPIFlashData_1:
        move.l    D1,-(A7)
        jsr       _SPIFlashProgram
        addq.w    #8,A7
-; if (addressOffset % 2048 == 0){
-       move.l    D2,-(A7)
-       pea       2048
-       jsr       LDIV
-       move.l    4(A7),D0
-       addq.w    #8,A7
-       tst.l     D0
+; if (addressOffset % 32768 == 0){
+       move.l    D2,D0
+       and.l     #32767,D0
        bne.s     WriteSPIFlashData_4
 ; printf(".");
        pea       @lab3_22.L
@@ -1569,8 +1567,9 @@ ProgramFlashChip_9:
        xdef      _LoadFromFlashChip
 _LoadFromFlashChip:
        link      A6,#-256
-       movem.l   D2/D3/D4/D5/A2,-(A7)
+       movem.l   D2/D3/D4/D5/A2/A3,-(A7)
        lea       _printf.L,A2
+       lea       -256(A6),A3
 ; unsigned int flashAddress = 0;
        clr.l     D5
 ; unsigned char * dataPtr = 0x08000000;
@@ -1593,40 +1592,67 @@ LoadFromFlashChip_1:
        bhs       LoadFromFlashChip_3
 ; ReadSPIFlashData(flashAddress, readBuffer, 256);
        pea       256
-       pea       -256(A6)
+       move.l    A3,-(A7)
        move.l    D5,-(A7)
        jsr       _ReadSPIFlashData
        add.w     #12,A7
+; if (i == 0) {
+       tst.l     D3
+       bne.s     LoadFromFlashChip_6
+; if (readBuffer[0] == 0xFF) {
+       move.b    (A3),D0
+       and.w     #255,D0
+       cmp.w     #255,D0
+       bne.s     LoadFromFlashChip_6
+; printf("garbage value read!\r\n");
+       pea       @lab3_30.L
+       jsr       (A2)
+       addq.w    #4,A7
+; return;
+       bra       LoadFromFlashChip_8
+LoadFromFlashChip_6:
+; }
+; }
 ; for (j = 0; j < 256; j++){
        clr.l     D2
-LoadFromFlashChip_4:
+LoadFromFlashChip_9:
        cmp.l     #256,D2
-       bhs.s     LoadFromFlashChip_6
+       bhs.s     LoadFromFlashChip_11
 ; dataPtr[j] = readBuffer[j];
-       lea       -256(A6),A0
-       move.l    D4,A1
-       move.b    0(A0,D2.L),0(A1,D2.L)
+       move.l    D4,A0
+       move.b    0(A3,D2.L),0(A0,D2.L)
        addq.l    #1,D2
-       bra       LoadFromFlashChip_4
-LoadFromFlashChip_6:
+       bra       LoadFromFlashChip_9
+LoadFromFlashChip_11:
 ; }
 ; dataPtr+=256;
        add.l     #256,D4
 ; flashAddress+=256;
        add.l     #256,D5
+; if (i % 128 == 0){
+       move.l    D3,-(A7)
+       pea       128
+       jsr       ULDIV
+       move.l    4(A7),D0
+       addq.w    #8,A7
+       tst.l     D0
+       bne.s     LoadFromFlashChip_12
 ; printf(".");
        pea       @lab3_22.L
        jsr       (A2)
        addq.w    #4,A7
+LoadFromFlashChip_12:
        addq.l    #1,D3
        bra       LoadFromFlashChip_1
 LoadFromFlashChip_3:
 ; }
+; }
 ; printf("\r\nDone loading.\r\n");
-       pea       @lab3_30.L
+       pea       @lab3_31.L
        jsr       (A2)
        addq.w    #4,A7
-       movem.l   (A7)+,D2/D3/D4/D5/A2
+LoadFromFlashChip_8:
+       movem.l   (A7)+,D2/D3/D4/D5/A2/A3
        unlk      A6
        rts
 ; }
@@ -1683,7 +1709,7 @@ DumpRegisters_1:
        lsl.l     #2,D1
        lea       _WatchPointAddress.L,A0
        move.l    0(A0,D1.L),-(A7)
-       pea       @lab3_31.L
+       pea       @lab3_32.L
        move.l    A5,D1
        ext.l     D2
        move.l    D0,-(A7)
@@ -1742,7 +1768,7 @@ DumpRegisters_9:
 DumpRegisters_11:
 ; }
 ; strcat(WatchPointString[x], " ");
-       pea       @lab3_32.L
+       pea       @lab3_33.L
        move.l    A5,D1
        ext.l     D2
        move.l    D0,-(A7)
@@ -1807,7 +1833,7 @@ DumpRegisters_15:
        move.b    0(A0,D3.L),D1
        and.l     #255,D1
        move.l    D1,-(A7)
-       pea       @lab3_33.L
+       pea       @lab3_34.L
        pea       _TempString.L
        jsr       _sprintf
        add.w     #12,A7
@@ -1833,7 +1859,7 @@ DumpRegisters_4:
 ; }
 ; else
 ; strcpy(WatchPointString[x], "");
-       pea       @lab3_34.L
+       pea       @lab3_35.L
        move.l    A5,D1
        ext.l     D2
        move.l    D0,-(A7)
@@ -1852,43 +1878,43 @@ DumpRegisters_3:
 ; printf("\r\n\r\n D0 = $%08X  A0 = $%08X", d0, a0);
        move.l    _a0.L,-(A7)
        move.l    _d0.L,-(A7)
-       pea       @lab3_35.L
+       pea       @lab3_36.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n D1 = $%08X  A1 = $%08X", d1, a1);
        move.l    _a1.L,-(A7)
        move.l    _d1.L,-(A7)
-       pea       @lab3_36.L
+       pea       @lab3_37.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n D2 = $%08X  A2 = $%08X", d2, a2);
        move.l    _a2.L,-(A7)
        move.l    _d2.L,-(A7)
-       pea       @lab3_37.L
+       pea       @lab3_38.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n D3 = $%08X  A3 = $%08X", d3, a3);
        move.l    _a3.L,-(A7)
        move.l    _d3.L,-(A7)
-       pea       @lab3_38.L
+       pea       @lab3_39.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n D4 = $%08X  A4 = $%08X", d4, a4);
        move.l    _a4.L,-(A7)
        move.l    _d4.L,-(A7)
-       pea       @lab3_39.L
+       pea       @lab3_40.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n D5 = $%08X  A5 = $%08X", d5, a5);
        move.l    _a5.L,-(A7)
        move.l    _d5.L,-(A7)
-       pea       @lab3_40.L
+       pea       @lab3_41.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n D6 = $%08X  A6 = $%08X", d6, a6);
        move.l    _a6.L,-(A7)
        move.l    _d6.L,-(A7)
-       pea       @lab3_41.L
+       pea       @lab3_42.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n D7 = $%08X  A7 = $%08X", d7, ((SR & (unsigned short int)(0x2000)) == ((unsigned short int)(0x2000))) ? SSP : USP);
@@ -1903,29 +1929,29 @@ DumpRegisters_18:
 DumpRegisters_19:
        move.l    D1,-(A7)
        move.l    _d7.L,-(A7)
-       pea       @lab3_42.L
+       pea       @lab3_43.L
        jsr       (A3)
        add.w     #12,A7
 ; printf("\r\n\r\nUSP = $%08X  (A7) User SP", USP);
        move.l    _USP.L,-(A7)
-       pea       @lab3_43.L
+       pea       @lab3_44.L
        jsr       (A3)
        addq.w    #8,A7
 ; printf("\r\nSSP = $%08X  (A7) Supervisor SP", SSP);
        move.l    _SSP.L,-(A7)
-       pea       @lab3_44.L
+       pea       @lab3_45.L
        jsr       (A3)
        addq.w    #8,A7
 ; printf("\r\n SR = $%04X   ", SR);
        move.w    (A4),D1
        and.l     #65535,D1
        move.l    D1,-(A7)
-       pea       @lab3_45.L
+       pea       @lab3_46.L
        jsr       (A3)
        addq.w    #8,A7
 ; // display the status word in characters etc.
 ; printf("   [");
-       pea       @lab3_46.L
+       pea       @lab3_47.L
        jsr       (A3)
        addq.w    #4,A7
 ; if ((SR & (unsigned short int)(0x8000)) == (unsigned short int)(0x8000)) putchar('T'); else putchar('-');      // Trace bit(bit 15)
@@ -2074,7 +2100,7 @@ DumpRegisters_39:
        addq.w    #4,A7
 ; printf("\r\n PC = $%08X  ", PC);
        move.l    _PC.L,-(A7)
-       pea       @lab3_47.L
+       pea       @lab3_48.L
        jsr       (A3)
        addq.w    #8,A7
 ; if (*(unsigned short int*)(PC) == 0x4e4e)
@@ -2084,7 +2110,7 @@ DumpRegisters_39:
        cmp.w     #20046,D0
        bne.s     DumpRegisters_40
 ; printf("[@ BREAKPOINT]");
-       pea       @lab3_48.L
+       pea       @lab3_49.L
        jsr       (A3)
        addq.w    #4,A7
 DumpRegisters_40:
@@ -2116,7 +2142,7 @@ DumpRegisters_42:
        move.l    D1,-(A7)
        ext.l     D4
        move.l    D4,-(A7)
-       pea       @lab3_49.L
+       pea       @lab3_50.L
        jsr       (A3)
        add.w     #12,A7
 DumpRegisters_45:
@@ -2135,21 +2161,21 @@ _DumpRegistersandPause:
        move.l    A2,-(A7)
        lea       _printf.L,A2
 ; printf("\r\n\r\n\r\n\r\n\r\n\r\nSingle Step  :[ON]");
-       pea       @lab3_50.L
+       pea       @lab3_51.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\nBreak Points :[Disabled]");
-       pea       @lab3_51.L
+       pea       @lab3_52.L
        jsr       (A2)
        addq.w    #4,A7
 ; DumpRegisters();
        jsr       _DumpRegisters
 ; printf("\r\nPress <SPACE> to Execute Next Instruction");
-       pea       @lab3_52.L
+       pea       @lab3_53.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\nPress <ESC> to Resume Program");
-       pea       @lab3_53.L
+       pea       @lab3_54.L
        jsr       (A2)
        addq.w    #4,A7
 ; menu();
@@ -2202,7 +2228,7 @@ _ChangeRegisters:
        bge.s     ChangeRegisters_3
 ChangeRegisters_5:
 ; printf("\r\nIllegal Data Register : Use D0-D7.....\r\n");
-       pea       @lab3_54.L
+       pea       @lab3_55.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -2214,7 +2240,7 @@ ChangeRegisters_3:
        ext.w     D2
        ext.l     D2
        move.l    D2,-(A7)
-       pea       @lab3_55.L
+       pea       @lab3_56.L
        jsr       (A2)
        addq.w    #8,A7
 ; reg_val = Get8HexDigits(0);    // read 32 bit value from user keyboard
@@ -2291,7 +2317,7 @@ ChangeRegisters_1:
        bge.s     ChangeRegisters_23
 ChangeRegisters_25:
 ; printf("\r\nIllegal Address Register : Use A0-A7.....\r\n");
-       pea       @lab3_56.L
+       pea       @lab3_57.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -2303,7 +2329,7 @@ ChangeRegisters_23:
        ext.w     D2
        ext.l     D2
        move.l    D2,-(A7)
-       pea       @lab3_57.L
+       pea       @lab3_58.L
        jsr       (A2)
        addq.w    #8,A7
 ; reg_val = Get8HexDigits(0);    // read 32 bit value from user keyboard
@@ -2386,7 +2412,7 @@ ChangeRegisters_21:
        cmp.l     #112,D0
        bne.s     ChangeRegisters_42
 ; printf("\r\nUser SP = ");
-       pea       @lab3_58.L
+       pea       @lab3_59.L
        jsr       (A2)
        addq.w    #4,A7
 ; USP = Get8HexDigits(0);    // read 32 bit value from user keyboard
@@ -2399,7 +2425,7 @@ ChangeRegisters_42:
 ; }
 ; else {
 ; printf("\r\nIllegal Register....");
-       pea       @lab3_59.L
+       pea       @lab3_60.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -2426,7 +2452,7 @@ ChangeRegisters_40:
        cmp.l     #112,D0
        bne.s     ChangeRegisters_46
 ; printf("\r\nSystem SP = ");
-       pea       @lab3_60.L
+       pea       @lab3_61.L
        jsr       (A2)
        addq.w    #4,A7
 ; SSP = Get8HexDigits(0);    // read 32 bit value from user keyboard
@@ -2439,7 +2465,7 @@ ChangeRegisters_46:
 ; }
 ; else {
 ; printf("\r\nIllegal Register....");
-       pea       @lab3_59.L
+       pea       @lab3_60.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -2456,7 +2482,7 @@ ChangeRegisters_44:
        cmp.b     #99,D2
        bne.s     ChangeRegisters_48
 ; printf("\r\nPC = ");
-       pea       @lab3_61.L
+       pea       @lab3_62.L
        jsr       (A2)
        addq.w    #4,A7
 ; PC = Get8HexDigits(0);    // read 32 bit value from user keyboard
@@ -2474,7 +2500,7 @@ ChangeRegisters_48:
        cmp.b     #114,D2
        bne.s     ChangeRegisters_50
 ; printf("\r\nSR = ");
-       pea       @lab3_62.L
+       pea       @lab3_63.L
        jsr       (A2)
        addq.w    #4,A7
 ; SR = Get4HexDigits(0);    // read 16 bit value from user keyboard
@@ -2487,7 +2513,7 @@ ChangeRegisters_50:
 ; }
 ; else
 ; printf("\r\nIllegal Register: Use A0-A7, D0-D7, SSP, USP, PC or SR\r\n");
-       pea       @lab3_63.L
+       pea       @lab3_64.L
        jsr       (A2)
        addq.w    #4,A7
 ChangeRegisters_51:
@@ -2531,11 +2557,11 @@ BreakPointDisplay_3:
        cmp.l     #1,D3
        bne.s     BreakPointDisplay_6
 ; printf("\r\n\r\nNum     Address      Instruction");
-       pea       @lab3_64.L
+       pea       @lab3_65.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\n---     ---------    -----------");
-       pea       @lab3_65.L
+       pea       @lab3_66.L
        jsr       (A2)
        addq.w    #4,A7
        bra.s     BreakPointDisplay_7
@@ -2543,7 +2569,7 @@ BreakPointDisplay_6:
 ; }
 ; else
 ; printf("\r\nNo BreakPoints Set");
-       pea       @lab3_66.L
+       pea       @lab3_67.L
        jsr       (A2)
        addq.w    #4,A7
 BreakPointDisplay_7:
@@ -2580,7 +2606,7 @@ BreakPointDisplay_8:
        lsl.l     #2,D1
        move.l    0(A3,D1.L),-(A7)
        move.l    D2,-(A7)
-       pea       @lab3_67.L
+       pea       @lab3_68.L
        jsr       (A2)
        add.w     #12,A7
 BreakPointDisplay_11:
@@ -2629,11 +2655,11 @@ WatchPointDisplay_3:
        cmp.l     #1,D3
        bne.s     WatchPointDisplay_6
 ; printf("\r\nNum     Address");
-       pea       @lab3_68.L
+       pea       @lab3_69.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\n---     ---------");
-       pea       @lab3_69.L
+       pea       @lab3_70.L
        jsr       (A2)
        addq.w    #4,A7
        bra.s     WatchPointDisplay_7
@@ -2641,7 +2667,7 @@ WatchPointDisplay_6:
 ; }
 ; else
 ; printf("\r\nNo WatchPoints Set");
-       pea       @lab3_70.L
+       pea       @lab3_71.L
        jsr       (A2)
        addq.w    #4,A7
 WatchPointDisplay_7:
@@ -2663,7 +2689,7 @@ WatchPointDisplay_8:
        lea       _WatchPointAddress.L,A0
        move.l    0(A0,D1.L),-(A7)
        move.l    D2,-(A7)
-       pea       @lab3_67.L
+       pea       @lab3_68.L
        jsr       (A2)
        add.w     #12,A7
 WatchPointDisplay_11:
@@ -2690,7 +2716,7 @@ _BreakPointClear:
 ; BreakPointDisplay();
        jsr       _BreakPointDisplay
 ; printf("\r\nEnter Break Point Number: ");
-       pea       @lab3_71.L
+       pea       @lab3_72.L
        jsr       (A2)
        addq.w    #4,A7
 ; i = xtod(_getch());           // get break pointer number
@@ -2710,7 +2736,7 @@ _BreakPointClear:
        bls.s     BreakPointClear_1
 BreakPointClear_3:
 ; printf("\r\nIllegal Range : Use 0 - 7");
-       pea       @lab3_72.L
+       pea       @lab3_73.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -2751,7 +2777,7 @@ BreakPointClear_1:
        lea       _BreakPointInstruction.L,A0
        clr.w     0(A0,D0.L)
 ; printf("\r\nBreak Point Cleared.....\r\n");
-       pea       @lab3_73.L
+       pea       @lab3_74.L
        jsr       (A2)
        addq.w    #4,A7
        bra.s     BreakPointClear_6
@@ -2759,7 +2785,7 @@ BreakPointClear_5:
 ; }
 ; else
 ; printf("\r\nBreak Point wasn't Set.....");
-       pea       @lab3_74.L
+       pea       @lab3_75.L
        jsr       (A2)
        addq.w    #4,A7
 BreakPointClear_6:
@@ -2781,7 +2807,7 @@ _WatchPointClear:
 ; WatchPointDisplay();
        jsr       _WatchPointDisplay
 ; printf("\r\nEnter Watch Point Number: ");
-       pea       @lab3_75.L
+       pea       @lab3_76.L
        jsr       (A2)
        addq.w    #4,A7
 ; i = xtod(_getch());           // get watch pointer number
@@ -2801,7 +2827,7 @@ _WatchPointClear:
        bls.s     WatchPointClear_1
 WatchPointClear_3:
 ; printf("\r\nIllegal Range : Use 0 - 7");
-       pea       @lab3_72.L
+       pea       @lab3_73.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -2826,7 +2852,7 @@ WatchPointClear_1:
        lea       _WatchPointSetOrCleared.L,A0
        clr.l     0(A0,D0.L)
 ; printf("\r\nWatch Point Cleared.....\r\n");
-       pea       @lab3_76.L
+       pea       @lab3_77.L
        jsr       (A2)
        addq.w    #4,A7
        bra.s     WatchPointClear_6
@@ -2834,7 +2860,7 @@ WatchPointClear_5:
 ; }
 ; else
 ; printf("\r\nWatch Point Was not Set.....");
-       pea       @lab3_77.L
+       pea       @lab3_78.L
        jsr       (A2)
        addq.w    #4,A7
 WatchPointClear_6:
@@ -3036,7 +3062,7 @@ SetBreakPoint_3:
        cmp.l     #8,D2
        bne.s     SetBreakPoint_6
 ; printf("\r\nNo FREE Break Points.....");
-       pea       @lab3_78.L
+       pea       @lab3_79.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -3044,7 +3070,7 @@ SetBreakPoint_3:
 SetBreakPoint_6:
 ; }
 ; printf("\r\nBreak Point Address: ");
-       pea       @lab3_79.L
+       pea       @lab3_80.L
        jsr       (A2)
        addq.w    #4,A7
 ; BPAddress = Get8HexDigits(0);
@@ -3060,7 +3086,7 @@ SetBreakPoint_6:
        cmp.l     #1,D0
        bne.s     SetBreakPoint_9
 ; printf("\r\nError : Break Points CANNOT be set at ODD addresses");
-       pea       @lab3_80.L
+       pea       @lab3_81.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -3071,7 +3097,7 @@ SetBreakPoint_9:
        cmp.l     #32768,D3
        bhs.s     SetBreakPoint_11
 ; printf("\r\nError : Break Points CANNOT be set for ROM in Range : [$0-$00007FFF]");
-       pea       @lab3_81.L
+       pea       @lab3_82.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -3092,7 +3118,7 @@ SetBreakPoint_13:
        bne.s     SetBreakPoint_16
 ; printf("\r\nError: Break Point Already Exists at Address : %08x\r\n", BPAddress);
        move.l    D3,-(A7)
-       pea       @lab3_82.L
+       pea       @lab3_83.L
        jsr       (A2)
        addq.w    #8,A7
 ; return;
@@ -3117,7 +3143,7 @@ SetBreakPoint_16:
        move.w    (A0),0(A1,D0.L)
 ; printf("\r\nBreak Point Set at Address: [$%08x]", ProgramBreakPointAddress);
        move.l    D4,-(A7)
-       pea       @lab3_83.L
+       pea       @lab3_84.L
        jsr       (A2)
        addq.w    #8,A7
 ; *ProgramBreakPointAddress = (unsigned short int)(0x4e4e);   // put a Trap14 instruction at the user specified address
@@ -3180,7 +3206,7 @@ SetWatchPoint_3:
        cmp.l     #8,D2
        bne.s     SetWatchPoint_6
 ; printf("\r\nNo FREE Watch Points.....");
-       pea       @lab3_84.L
+       pea       @lab3_85.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -3188,7 +3214,7 @@ SetWatchPoint_3:
 SetWatchPoint_6:
 ; }
 ; printf("\r\nWatch Point Address: ");
-       pea       @lab3_85.L
+       pea       @lab3_86.L
        jsr       (A2)
        addq.w    #4,A7
 ; WPAddress = Get8HexDigits(0);
@@ -3212,7 +3238,7 @@ SetWatchPoint_9:
        beq.s     SetWatchPoint_12
 ; printf("\r\nError: Watch Point Already Set at Address : %08x\r\n", WPAddress);
        move.l    D3,-(A7)
-       pea       @lab3_86.L
+       pea       @lab3_87.L
        jsr       (A2)
        addq.w    #8,A7
 ; return;
@@ -3230,7 +3256,7 @@ SetWatchPoint_12:
        move.l    #1,0(A3,D0.L)
 ; printf("\r\nWatch Point Set at Address: [$%08x]", WPAddress);
        move.l    D3,-(A7)
-       pea       @lab3_87.L
+       pea       @lab3_88.L
        jsr       (A2)
        addq.w    #8,A7
 ; WatchPointAddress[i] = WPAddress;                              // record the address of this watch point in the debugger
@@ -3271,15 +3297,15 @@ _HandleBreakPoint:
 ; PC = PC - 2;  // ready for user to resume after reaching breakpoint
        subq.l    #2,(A4)
 ; printf("\r\n\r\n\r\n\r\n@BREAKPOINT");
-       pea       @lab3_88.L
-       jsr       (A3)
-       addq.w    #4,A7
-; printf("\r\nSingle Step : [ON]");
        pea       @lab3_89.L
        jsr       (A3)
        addq.w    #4,A7
-; printf("\r\nBreakPoints : [Enabled]");
+; printf("\r\nSingle Step : [ON]");
        pea       @lab3_90.L
+       jsr       (A3)
+       addq.w    #4,A7
+; printf("\r\nBreakPoints : [Enabled]");
+       pea       @lab3_91.L
        jsr       (A3)
        addq.w    #4,A7
 ; // now clear the break point (put original instruction back)
@@ -3328,11 +3354,11 @@ HandleBreakPoint_3:
 ; DumpRegisters();
        jsr       _DumpRegisters
 ; printf("\r\nPress <SPACE> to Execute Next Instruction");
-       pea       @lab3_52.L
+       pea       @lab3_53.L
        jsr       (A3)
        addq.w    #4,A7
 ; printf("\r\nPress <ESC> to Resume User Program\r\n");
-       pea       @lab3_91.L
+       pea       @lab3_92.L
        jsr       (A3)
        addq.w    #4,A7
 ; menu();
@@ -3346,7 +3372,7 @@ HandleBreakPoint_3:
        xdef      _UnknownCommand
 _UnknownCommand:
 ; printf("\r\nUnknown Command.....\r\n");
-       pea       @lab3_92.L
+       pea       @lab3_93.L
        jsr       _printf
        addq.w    #4,A7
 ; Help();
@@ -3359,7 +3385,7 @@ _UnknownCommand:
        xdef      _CallDebugMonitor
 _CallDebugMonitor:
 ; printf("\r\nProgram Ended (TRAP #15)....");
-       pea       @lab3_93.L
+       pea       @lab3_94.L
        jsr       _printf
        addq.w    #4,A7
 ; menu();
@@ -3392,7 +3418,7 @@ Breakpoint_1:
        cmp.b     #75,D2
        bne.s     Breakpoint_3
 ; printf("\r\nKill All Break Points...(y/n)?");
-       pea       @lab3_94.L
+       pea       @lab3_95.L
        jsr       _printf
        addq.w    #4,A7
 ; c = toupper(_getch());
@@ -3462,7 +3488,7 @@ Watchpoint_1:
        cmp.b     #75,D2
        bne.s     Watchpoint_3
 ; printf("\r\nKill All Watch Points...(y/n)?");
-       pea       @lab3_95.L
+       pea       @lab3_96.L
        jsr       _printf
        addq.w    #4,A7
 ; c = toupper(_getch());
@@ -3513,14 +3539,14 @@ _Help:
        movem.l   D2/A2,-(A7)
        lea       _printf.L,A2
 ; char* banner = "\r\n----------------------------------------------------------------";
-       lea       @lab3_96.L,A0
+       lea       @lab3_97.L,A0
        move.l    A0,D2
 ; printf(banner);
        move.l    D2,-(A7)
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\n  Debugger Command Summary");
-       pea       @lab3_97.L
+       pea       @lab3_98.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf(banner);
@@ -3528,68 +3554,68 @@ _Help:
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\n  .(reg)       - Change Registers: e.g A0-A7,D0-D7,PC,SSP,USP,SR");
-       pea       @lab3_98.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("\r\n  BD/BS/BC/BK  - Break Point: Display/Set/Clear/Kill");
        pea       @lab3_99.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  C            - Copy Program from Flash to Main Memory");
+; printf("\r\n  BD/BS/BC/BK  - Break Point: Display/Set/Clear/Kill");
        pea       @lab3_100.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  D            - Dump Memory Contents to Screen");
+; printf("\r\n  C            - Copy Program from Flash to Main Memory");
        pea       @lab3_101.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  E            - Enter String into Memory");
+; printf("\r\n  D            - Dump Memory Contents to Screen");
        pea       @lab3_102.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  F            - Fill Memory with Data");
+; printf("\r\n  E            - Enter String into Memory");
        pea       @lab3_103.L
+       jsr       (A2)
+       addq.w    #4,A7
+; printf("\r\n  F            - Fill Memory with Data");
+       pea       @lab3_104.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\n  G            - Go Program Starting at Address: $%08X", PC);
        move.l    _PC.L,-(A7)
-       pea       @lab3_104.L
+       pea       @lab3_105.L
        jsr       (A2)
        addq.w    #8,A7
 ; printf("\r\n  L            - Load Program (.HEX file) from Laptop");
-       pea       @lab3_105.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("\r\n  M            - Memory Examine and Change");
        pea       @lab3_106.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  P            - Program Flash Memory with User Program");
+; printf("\r\n  M            - Memory Examine and Change");
        pea       @lab3_107.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  R            - Display 68000 Registers");
+; printf("\r\n  P            - Program Flash Memory with User Program");
        pea       @lab3_108.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  S            - Toggle ON/OFF Single Step Mode");
+; printf("\r\n  R            - Display 68000 Registers");
        pea       @lab3_109.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  TM           - Test Memory");
+; printf("\r\n  S            - Toggle ON/OFF Single Step Mode");
        pea       @lab3_110.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  TS           - Test Switches: SW7-0");
+; printf("\r\n  TM           - Test Memory");
        pea       @lab3_111.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  TD           - Test Displays: LEDs and 7-Segment");
+; printf("\r\n  TS           - Test Switches: SW7-0");
        pea       @lab3_112.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n  WD/WS/WC/WK  - Watch Point: Display/Set/Clear/Kill");
+; printf("\r\n  TD           - Test Displays: LEDs and 7-Segment");
        pea       @lab3_113.L
+       jsr       (A2)
+       addq.w    #4,A7
+; printf("\r\n  WD/WS/WC/WK  - Watch Point: Display/Set/Clear/Kill");
+       pea       @lab3_114.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf(banner);
@@ -3614,7 +3640,7 @@ menu_1:
 ; FlushKeyboard();               // dump unread characters from keyboard
        jsr       _FlushKeyboard
 ; printf("\r\n#");
-       pea       @lab3_114.L
+       pea       @lab3_115.L
        jsr       (A2)
        addq.w    #4,A7
 ; c = toupper(_getch());
@@ -3658,11 +3684,11 @@ menu_10:
        cmp.b     #71,D2
        bne.s     menu_12
 ; printf("\r\nProgram Running.....");
-       pea       @lab3_115.L
+       pea       @lab3_116.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\nPress <RESET> button <Key0> on DE1 to stop");
-       pea       @lab3_116.L
+       pea       @lab3_117.L
        jsr       (A2)
        addq.w    #4,A7
 ; GoFlag = 1;
@@ -3774,7 +3800,7 @@ menu_36:
 ; }
 ; else
 ; printf("\r\nError: Press 'G' first to start program");
-       pea       @lab3_117.L
+       pea       @lab3_118.L
        jsr       (A2)
        addq.w    #4,A7
        bra       menu_46
@@ -3789,22 +3815,22 @@ menu_34:
 ; DisableBreakPoints();
        jsr       _DisableBreakPoints
 ; printf("\r\nSingle Step  :[ON]");
-       pea       @lab3_118.L
+       pea       @lab3_119.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\nBreak Points :[Disabled]");
-       pea       @lab3_51.L
+       pea       @lab3_52.L
        jsr       (A2)
        addq.w    #4,A7
 ; SR = SR | (unsigned short int)(0x8000);    // set T bit in status register
        or.w      #32768,(A5)
 ; printf("\r\nPress 'G' to Trace Program from address $%X.....", PC);
        move.l    _PC.L,-(A7)
-       pea       @lab3_119.L
+       pea       @lab3_120.L
        jsr       (A2)
        addq.w    #8,A7
 ; printf("\r\nPush <RESET Button> to Stop.....");
-       pea       @lab3_120.L
+       pea       @lab3_121.L
        jsr       (A2)
        addq.w    #4,A7
 ; DumpRegisters();
@@ -3830,15 +3856,15 @@ menu_41:
 ; SR = SR & (unsigned short int)(0x7FFF);    // clear T bit in status register
        and.w     #32767,(A5)
 ; printf("\r\nSingle Step : [OFF]");
-       pea       @lab3_121.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("\r\nBreak Points :[Enabled]");
        pea       @lab3_122.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\nPress <ESC> to Resume User Program.....");
+; printf("\r\nBreak Points :[Enabled]");
        pea       @lab3_123.L
+       jsr       (A2)
+       addq.w    #4,A7
+; printf("\r\nPress <ESC> to Resume User Program.....");
+       pea       @lab3_124.L
        jsr       (A2)
        addq.w    #4,A7
 menu_42:
@@ -3860,19 +3886,19 @@ menu_39:
 ; SR = SR & (unsigned short int)(0x7FFF);    // clear T bit in status register
        and.w     #32767,(A5)
 ; printf("\r\nSingle Step  :[OFF]");
-       pea       @lab3_124.L
+       pea       @lab3_125.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\nBreak Points :[Enabled]");
-       pea       @lab3_122.L
+       pea       @lab3_123.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\nProgram Running.....");
-       pea       @lab3_115.L
+       pea       @lab3_116.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\nPress <RESET> button <Key0> on DE1 to stop");
-       pea       @lab3_116.L
+       pea       @lab3_117.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -3901,12 +3927,12 @@ menu_38:
 _PrintErrorMessageandAbort:
        link      A6,#0
 ; printf("\r\n\r\nProgram ABORT !!!!!!\r\n");
-       pea       @lab3_125.L
+       pea       @lab3_126.L
        jsr       _printf
        addq.w    #4,A7
 ; printf("%s\r\n", string);
        move.l    8(A6),-(A7)
-       pea       @lab3_126.L
+       pea       @lab3_127.L
        jsr       _printf
        addq.w    #8,A7
 ; menu();
@@ -3919,12 +3945,12 @@ _PrintErrorMessageandAbort:
 _IRQMessage:
        link      A6,#0
 ; printf("\r\n\r\nProgram ABORT !!!!!");
-       pea       @lab3_127.L
+       pea       @lab3_128.L
        jsr       _printf
        addq.w    #4,A7
 ; printf("\r\nUnhandled Interrupt: IRQ%d !!!!!", level);
        move.l    8(A6),-(A7)
-       pea       @lab3_128.L
+       pea       @lab3_129.L
        jsr       _printf
        addq.w    #8,A7
 ; menu();
@@ -3981,7 +4007,7 @@ _UnhandledIRQ5:
        xdef      _UnhandledIRQ6
 _UnhandledIRQ6:
 ; PrintErrorMessageandAbort("ADDRESS ERROR: 16 or 32 Bit Transfer to/from an ODD Address....");
-       pea       @lab3_129.L
+       pea       @lab3_130.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
 ; menu();
@@ -4001,7 +4027,7 @@ _UnhandledIRQ7:
        xdef      _UnhandledTrap
 _UnhandledTrap:
 ; PrintErrorMessageandAbort("Unhandled Trap !!!!!");
-       pea       @lab3_130.L
+       pea       @lab3_131.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4010,7 +4036,7 @@ _UnhandledTrap:
        xdef      _BusError
 _BusError:
 ; PrintErrorMessageandAbort("BUS Error!");
-       pea       @lab3_131.L
+       pea       @lab3_132.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4019,7 +4045,7 @@ _BusError:
        xdef      _AddressError
 _AddressError:
 ; PrintErrorMessageandAbort("ADDRESS Error!");
-       pea       @lab3_132.L
+       pea       @lab3_133.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4028,7 +4054,7 @@ _AddressError:
        xdef      _IllegalInstruction
 _IllegalInstruction:
 ; PrintErrorMessageandAbort("ILLEGAL INSTRUCTION");
-       pea       @lab3_133.L
+       pea       @lab3_134.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4037,7 +4063,7 @@ _IllegalInstruction:
        xdef      _Dividebyzero
 _Dividebyzero:
 ; PrintErrorMessageandAbort("DIVIDE BY ZERO");
-       pea       @lab3_134.L
+       pea       @lab3_135.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4046,7 +4072,7 @@ _Dividebyzero:
        xdef      _Check
 _Check:
 ; PrintErrorMessageandAbort("'CHK' INSTRUCTION");
-       pea       @lab3_135.L
+       pea       @lab3_136.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4055,7 +4081,7 @@ _Check:
        xdef      _Trapv
 _Trapv:
 ; PrintErrorMessageandAbort("TRAPV INSTRUCTION");
-       pea       @lab3_136.L
+       pea       @lab3_137.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4064,7 +4090,7 @@ _Trapv:
        xdef      _PrivError
 _PrivError:
 ; PrintErrorMessageandAbort("PRIVILEGE VIOLATION");
-       pea       @lab3_137.L
+       pea       @lab3_138.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4073,7 +4099,7 @@ _PrivError:
        xdef      _UnitIRQ
 _UnitIRQ:
 ; PrintErrorMessageandAbort("UNINITIALISED IRQ");
-       pea       @lab3_138.L
+       pea       @lab3_139.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4082,7 +4108,7 @@ _UnitIRQ:
        xdef      _Spurious
 _Spurious:
 ; PrintErrorMessageandAbort("SPURIOUS IRQ");
-       pea       @lab3_139.L
+       pea       @lab3_140.L
        jsr       _PrintErrorMessageandAbort
        addq.w    #4,A7
        rts
@@ -4096,7 +4122,7 @@ _EnterString:
 ; unsigned char* Start;
 ; unsigned char c;
 ; printf("\r\nStart Address in Memory: ");
-       pea       @lab3_140.L
+       pea       @lab3_141.L
        jsr       _printf
        addq.w    #4,A7
 ; Start = Get8HexDigits(0);
@@ -4105,7 +4131,7 @@ _EnterString:
        addq.w    #4,A7
        move.l    D0,D2
 ; printf("\r\nEnter String (ESC to end) :");
-       pea       @lab3_141.L
+       pea       @lab3_142.L
        jsr       _printf
        addq.w    #4,A7
 ; while ((c = getchar()) != 0x1b)
@@ -4165,7 +4191,7 @@ _MemoryTest:
 ; unsigned int counter = 9999;
        move.l    #9999,D6
 ; printf("\r\nSelect data type:\n1 = bytes (8 bits)\n2 = words (16 bits)\n3 = long words (32 bits)\n");
-       pea       @lab3_142.L
+       pea       @lab3_143.L
        jsr       (A2)
        addq.w    #4,A7
 ; data_type_num = _getch();
@@ -4188,15 +4214,15 @@ MemoryTest_7:
 MemoryTest_3:
 ; case (char)('1') :
 ; printf("\nSelecting byte size\n");
-       pea       @lab3_143.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("Select data value:\n");
        pea       @lab3_144.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("1 = \"AA\"\n2 = \"AB\"\n3 = \"CC\"\n4 = \"CD\"\n");
+; printf("Select data value:\n");
        pea       @lab3_145.L
+       jsr       (A2)
+       addq.w    #4,A7
+; printf("1 = \"AA\"\n2 = \"AB\"\n3 = \"CC\"\n4 = \"CD\"\n");
+       pea       @lab3_146.L
        jsr       (A2)
        addq.w    #4,A7
 ; do {
@@ -4214,7 +4240,7 @@ MemoryTest_8:
        cmp.l     #52,D2
        beq.s     MemoryTest_10
 ; printf("\r\nERROR: Select either 1, 2, 3, or 4\r\n");
-       pea       @lab3_146.L
+       pea       @lab3_147.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_10:
@@ -4263,7 +4289,7 @@ MemoryTest_19:
 ; }
 ; else {
 ; printf("\r\nERROR: Exiting memory test due to option memory complication.\r\n");
-       pea       @lab3_147.L
+       pea       @lab3_148.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -4271,7 +4297,7 @@ MemoryTest_19:
 MemoryTest_20:
 ; }
 ; printf("\r\nEnter start address within 0x09000000 - 0x097FFFFF:\r\n");
-       pea       @lab3_148.L
+       pea       @lab3_149.L
        jsr       (A2)
        addq.w    #4,A7
 ; do{
@@ -4288,7 +4314,7 @@ MemoryTest_22:
        bls.s     MemoryTest_24
 MemoryTest_26:
 ; printf("\r\nERROR: Starting Address is outside of 68K memory range. Ensure the address is withn 0x09000000 - 0x097FFFFF\r\n");
-       pea       @lab3_149.L
+       pea       @lab3_150.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_24:
@@ -4299,7 +4325,7 @@ MemoryTest_24:
 ; }
 ; } while(StartPtrByte < (int)(0x09000000) || StartPtrByte > (int)(0x097FFFFF));
 ; printf("\r\nEnter end address within 0x09000000 - 0x097FFFFF:\r\n");
-       pea       @lab3_150.L
+       pea       @lab3_151.L
        jsr       (A2)
        addq.w    #4,A7
 ; do{
@@ -4318,7 +4344,7 @@ MemoryTest_27:
        bls.s     MemoryTest_29
 MemoryTest_31:
 ; printf("\r\nERROR: End Address is outside of 68K memory range. Ensure the address is withn 0x09000000 - 0x097FFFFF\r\n");
-       pea       @lab3_151.L
+       pea       @lab3_152.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_29:
@@ -4331,7 +4357,7 @@ MemoryTest_29:
 ; }
 ; } while(EndPtrByte < (int)(0x09000000) || EndPtrByte > (int)(0x097FFFFF));
 ; printf("\r\n\r\nWriting to memory");
-       pea       @lab3_152.L
+       pea       @lab3_153.L
        jsr       (A2)
        addq.w    #4,A7
 ; TempPtrByte = StartPtrByte;
@@ -4353,7 +4379,7 @@ MemoryTest_32:
        move.b    -40(A6),D1
        and.l     #255,D1
        move.l    D1,-(A7)
-       pea       @lab3_153.L
+       pea       @lab3_154.L
        jsr       (A2)
        add.w     #12,A7
 ; counter = 0;
@@ -4368,7 +4394,7 @@ MemoryTest_34:
 ; counter = 9999;
        move.l    #9999,D6
 ; printf("\r\n\r\nStarting memory validation test");
-       pea       @lab3_154.L
+       pea       @lab3_155.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrByte = TempPtrByte;
@@ -4379,7 +4405,7 @@ MemoryTest_34:
        move.l    D1,-(A7)
        move.l    -68(A6),-(A7)
        move.l    D5,-(A7)
-       pea       @lab3_155.L
+       pea       @lab3_156.L
        jsr       (A2)
        add.w     #16,A7
 ; while (StartPtrByte < EndPtrByte) {
@@ -4400,7 +4426,7 @@ MemoryTest_37:
        and.l     #255,D1
        move.l    D1,-(A7)
        move.l    D5,-(A7)
-       pea       @lab3_156.L
+       pea       @lab3_157.L
        jsr       (A2)
        add.w     #16,A7
 ; return;
@@ -4413,7 +4439,7 @@ MemoryTest_40:
 MemoryTest_39:
 ; }
 ; printf("\r\nPASS: Memory Validation test has passed\r\n");
-       pea       @lab3_157.L
+       pea       @lab3_158.L
        jsr       (A2)
        addq.w    #4,A7
 ; break;
@@ -4421,15 +4447,15 @@ MemoryTest_39:
 MemoryTest_4:
 ; case (char)('2') :
 ; printf("\r\nSelecting word size");
-       pea       @lab3_158.L
+       pea       @lab3_159.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("Select data value:\n");
-       pea       @lab3_144.L
+       pea       @lab3_145.L
        jsr       (A2)
        addq.w    #4,A7
 ; printf("\r\n1 = \"AAAA\"\n2 = \"BABA\"\n3 = \"CCDD\"\n4 = \"DDDD\"\r\n");
-       pea       @lab3_159.L
+       pea       @lab3_160.L
        jsr       (A2)
        addq.w    #4,A7
 ; do {
@@ -4447,7 +4473,7 @@ MemoryTest_42:
        cmp.l     #52,D2
        beq.s     MemoryTest_44
 ; printf("\r\nERROR: Select either 1, 2, 3, or 4\r\n");
-       pea       @lab3_146.L
+       pea       @lab3_147.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_44:
@@ -4496,7 +4522,7 @@ MemoryTest_53:
 ; }
 ; else {
 ; printf("\r\nERROR: Exiting memory test due to option memory complication.\r\n");
-       pea       @lab3_147.L
+       pea       @lab3_148.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -4506,7 +4532,7 @@ MemoryTest_54:
 ; do {
 MemoryTest_55:
 ; printf("\r\nEnter start address within 0x09000000 - 0x097FFFFF: (Ensure to enter an even number)\r\n");
-       pea       @lab3_160.L
+       pea       @lab3_161.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrWord = Get8HexDigits(0);
@@ -4522,7 +4548,7 @@ MemoryTest_57:
        bls.s     MemoryTest_59
 MemoryTest_60:
 ; printf("\r\nERROR: Starting Address is outside of 68K memory range. Ensure the address is withn 0x09000000 - 0x097FFFFF\r\n");
-       pea       @lab3_149.L
+       pea       @lab3_150.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrWord = Get8HexDigits(0);
@@ -4542,7 +4568,7 @@ MemoryTest_59:
        tst.l     D0
        beq.s     MemoryTest_61
 ; printf("\r\nERROR: The address you have entered is not even. Try again\r\n");
-       pea       @lab3_161.L
+       pea       @lab3_162.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_61:
@@ -4558,7 +4584,7 @@ MemoryTest_61:
 ; do {
 MemoryTest_63:
 ; printf("\r\nEnter end address within 0x09000000 - 0x097FFFFF: (Ensure to enter an even number)\r\n");
-       pea       @lab3_162.L
+       pea       @lab3_163.L
        jsr       (A2)
        addq.w    #4,A7
 ; EndPtrWord = Get8HexDigits(0);
@@ -4576,7 +4602,7 @@ MemoryTest_65:
        bls.s     MemoryTest_67
 MemoryTest_68:
 ; printf("\r\nERROR: End Address is outside of 68K memory range. Ensure the address is withn 0x09000000 - 0x097FFFFF\r\n");
-       pea       @lab3_151.L
+       pea       @lab3_152.L
        jsr       (A2)
        addq.w    #4,A7
 ; EndPtrWord = Get8HexDigits(0);
@@ -4596,7 +4622,7 @@ MemoryTest_67:
        tst.l     D0
        beq.s     MemoryTest_69
 ; printf("\r\nERROR: The address you have entered is not even. Try again\r\n");
-       pea       @lab3_161.L
+       pea       @lab3_162.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_69:
@@ -4610,7 +4636,7 @@ MemoryTest_69:
 ; }
 ; } while (EndPtrWord % 2 != 0);
 ; printf("\r\n\r\nWriting to memory");
-       pea       @lab3_152.L
+       pea       @lab3_153.L
        jsr       (A2)
        addq.w    #4,A7
 ; TempPtrWord = StartPtrWord;
@@ -4631,7 +4657,7 @@ MemoryTest_71:
 ; printf("\r\nWRITE: [%04X to %08x]", test_data_word, StartPtrWord);
        move.l    D4,-(A7)
        move.l    -22(A6),-(A7)
-       pea       @lab3_163.L
+       pea       @lab3_164.L
        jsr       (A2)
        add.w     #12,A7
 ; counter = 0;
@@ -4646,7 +4672,7 @@ MemoryTest_73:
 ; counter = 9999;
        move.l    #9999,D6
 ; printf("\r\n\r\nStarting memory validation test");
-       pea       @lab3_154.L
+       pea       @lab3_155.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrWord = TempPtrWord;
@@ -4655,7 +4681,7 @@ MemoryTest_73:
        move.l    -22(A6),-(A7)
        move.l    A5,-(A7)
        move.l    D4,-(A7)
-       pea       @lab3_155.L
+       pea       @lab3_156.L
        jsr       (A2)
        add.w     #16,A7
 ; while (StartPtrWord < EndPtrWord) {
@@ -4675,7 +4701,7 @@ MemoryTest_76:
        and.l     #65535,D1
        move.l    D1,-(A7)
        move.l    D4,-(A7)
-       pea       @lab3_164.L
+       pea       @lab3_165.L
        jsr       (A2)
        add.w     #16,A7
 ; return;
@@ -4688,7 +4714,7 @@ MemoryTest_79:
 MemoryTest_78:
 ; }
 ; printf("\r\nPASS: Memory Validation test has passed.\r\n");
-       pea       @lab3_165.L
+       pea       @lab3_166.L
        jsr       (A2)
        addq.w    #4,A7
 ; break;
@@ -4696,15 +4722,15 @@ MemoryTest_78:
 MemoryTest_5:
 ; case (char)('3') :
 ; printf("\r\nSelecting long word size");
-       pea       @lab3_166.L
-       jsr       (A2)
-       addq.w    #4,A7
-; printf("\r\nSelect data value:");
        pea       @lab3_167.L
        jsr       (A2)
        addq.w    #4,A7
-; printf("\r\n1 = \"AAAAAAAA\"\n2 = \"ABABABAB\"\n3 = \"CCCCDDDD\"\n4 = \"AABBCCDD\"\r\n");
+; printf("\r\nSelect data value:");
        pea       @lab3_168.L
+       jsr       (A2)
+       addq.w    #4,A7
+; printf("\r\n1 = \"AAAAAAAA\"\n2 = \"ABABABAB\"\n3 = \"CCCCDDDD\"\n4 = \"AABBCCDD\"\r\n");
+       pea       @lab3_169.L
        jsr       (A2)
        addq.w    #4,A7
 ; do {
@@ -4722,7 +4748,7 @@ MemoryTest_81:
        cmp.l     #52,D2
        beq.s     MemoryTest_83
 ; printf("\r\nSelect either 1, 2, 3, or 4.\r\n");
-       pea       @lab3_169.L
+       pea       @lab3_170.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_83:
@@ -4771,7 +4797,7 @@ MemoryTest_92:
 ; }
 ; else {
 ; printf("\r\nERROR: Exiting memory test due to option memory complication. \r\n");
-       pea       @lab3_170.L
+       pea       @lab3_171.L
        jsr       (A2)
        addq.w    #4,A7
 ; return;
@@ -4781,7 +4807,7 @@ MemoryTest_93:
 ; do {
 MemoryTest_94:
 ; printf("\r\nEnter start address within 0x09000000 - 0x097FFFFF: (Ensure to enter an even number)\r\n");
-       pea       @lab3_160.L
+       pea       @lab3_161.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrLongWord = Get8HexDigits(0);
@@ -4797,7 +4823,7 @@ MemoryTest_96:
        bls.s     MemoryTest_98
 MemoryTest_99:
 ; printf("\r\nERROR: Starting Address is outside of 68K memory range. Please try again and ensure the address is withn 0x09000000 - 0x097FFFFF\r\n");
-       pea       @lab3_171.L
+       pea       @lab3_172.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrLongWord = Get8HexDigits(0);
@@ -4817,7 +4843,7 @@ MemoryTest_98:
        tst.l     D0
        beq.s     MemoryTest_100
 ; printf("\r\nERROR: The address you have entered is not even. Try again\r\n");
-       pea       @lab3_161.L
+       pea       @lab3_162.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_100:
@@ -4833,7 +4859,7 @@ MemoryTest_100:
 ; do {
 MemoryTest_102:
 ; printf("\r\nEnter end address within 0x09000000 - 0x097FFFFF: (Ensure to enter an even number)\r\n");
-       pea       @lab3_162.L
+       pea       @lab3_163.L
        jsr       (A2)
        addq.w    #4,A7
 ; EndPtrLongWord = Get8HexDigits(0);
@@ -4851,7 +4877,7 @@ MemoryTest_104:
        bls.s     MemoryTest_106
 MemoryTest_107:
 ; printf("\r\nERROR: End Address is outside of 68K memory range. Please try again and ensure the address is withn 0x09000000 - 0x097FFFFF\r\n");
-       pea       @lab3_172.L
+       pea       @lab3_173.L
        jsr       (A2)
        addq.w    #4,A7
 ; EndPtrLongWord = Get8HexDigits(0);
@@ -4871,7 +4897,7 @@ MemoryTest_106:
        tst.l     D0
        beq.s     MemoryTest_108
 ; printf("\r\nERROR: The address you have entered is not even. Please try again\r\n");
-       pea       @lab3_173.L
+       pea       @lab3_174.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_108:
@@ -4885,7 +4911,7 @@ MemoryTest_108:
 ; }
 ; } while (EndPtrLongWord % 2 != 0);
 ; printf("\r\n\r\nWriting to memory");
-       pea       @lab3_152.L
+       pea       @lab3_153.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrLongWordTruc = StartPtrLongWord;
@@ -4905,7 +4931,7 @@ MemoryTest_108:
        tst.l     D0
        beq.s     MemoryTest_110
 ; printf("\r\nWARNING: Memory will contain truncated data"); 
-       pea       @lab3_174.L
+       pea       @lab3_175.L
        jsr       (A2)
        addq.w    #4,A7
 ; truncated_data = test_data_long_word;   
@@ -4937,7 +4963,7 @@ MemoryTest_112:
        move.w    (A0),D1
        and.l     #65535,D1
        move.l    D1,-(A7)
-       pea       @lab3_175.L
+       pea       @lab3_176.L
        jsr       (A2)
        add.w     #12,A7
 ; counter = 0;
@@ -4953,7 +4979,7 @@ MemoryTest_115:
 ; printf("\r\nWRITE: [%08X to %08x]", test_data_long_word, StartPtrLongWord);
        move.l    D3,-(A7)
        move.l    D7,-(A7)
-       pea       @lab3_175.L
+       pea       @lab3_176.L
        jsr       (A2)
        add.w     #12,A7
 MemoryTest_116:
@@ -4968,7 +4994,7 @@ MemoryTest_114:
 ; counter = 9999;
        move.l    #9999,D6
 ; printf("\r\n\r\nStarting memory validation test");
-       pea       @lab3_154.L
+       pea       @lab3_155.L
        jsr       (A2)
        addq.w    #4,A7
 ; StartPtrLongWord = TempPtrLongWord;
@@ -4979,7 +5005,7 @@ MemoryTest_114:
        move.l    D7,-(A7)
        move.l    A3,-(A7)
        move.l    D3,-(A7)
-       pea       @lab3_155.L
+       pea       @lab3_156.L
        jsr       (A2)
        add.w     #16,A7
 ; while (StartPtrLongWord < EndPtrLongWord) {
@@ -5005,7 +5031,7 @@ MemoryTest_122:
        move.l    D3,A0
        move.l    (A0),-(A7)
        move.l    D3,-(A7)
-       pea       @lab3_176.L
+       pea       @lab3_177.L
        jsr       (A2)
        add.w     #16,A7
 ; return;
@@ -5021,7 +5047,7 @@ MemoryTest_124:
 MemoryTest_121:
 ; }
 ; printf("\r\nPASS: Memory Validation test has passed!\r\n");
-       pea       @lab3_177.L
+       pea       @lab3_178.L
        jsr       (A2)
        addq.w    #4,A7
 ; break;
@@ -5029,7 +5055,7 @@ MemoryTest_121:
 MemoryTest_1:
 ; default:
 ; printf("\r\nYou failed to select a data type to use! Click open memory test again to try again.\r\n");
-       pea       @lab3_178.L
+       pea       @lab3_179.L
        jsr       (A2)
        addq.w    #4,A7
 MemoryTest_2:
@@ -5049,13 +5075,13 @@ _main:
 ; char c;
 ; int i, j;
 ; char* BugMessage = "DE1-68k Bug V1.77";
-       lea       @lab3_179.L,A0
+       lea       @lab3_180.L,A0
        move.l    A0,D3
 ; char* CopyrightMessage = "Copyright (C) PJ Davies 2016";
-       lea       @lab3_180.L,A0
+       lea       @lab3_181.L,A0
        move.l    A0,-8(A6)
 ; char* NamesAndStudentNumbers = "\r\n\r\nKenny Wakaba - 91378315\r\nJacob Yang - 24940835";
-       lea       @lab3_181.L,A0
+       lea       @lab3_182.L,A0
        move.l    A0,-4(A6)
 ; KillAllBreakPoints();
        jsr       _KillAllBreakPoints
@@ -5256,11 +5282,11 @@ main_7:
 ; LoadFromFlashChip();
        jsr       _LoadFromFlashChip
 ; printf("\r\nRunning.....");
-       pea       @lab3_182.L
+       pea       @lab3_183.L
        jsr       (A3)
        addq.w    #4,A7
 ; Oline1("Running.....");
-       pea       @lab3_183.L
+       pea       @lab3_184.L
        jsr       _Oline1
        addq.w    #4,A7
 ; GoFlag = 1;
@@ -5276,22 +5302,22 @@ main_9:
        jsr       _Oline0
        addq.w    #4,A7
 ; Oline1("By: PJ Davies");
-       pea       @lab3_184.L
+       pea       @lab3_185.L
        jsr       _Oline1
        addq.w    #4,A7
 ; printf("\r\n%s", BugMessage);
        move.l    D3,-(A7)
-       pea       @lab3_185.L
+       pea       @lab3_186.L
        jsr       (A3)
        addq.w    #8,A7
 ; printf("\r\n%s", CopyrightMessage);
        move.l    -8(A6),-(A7)
-       pea       @lab3_185.L
+       pea       @lab3_186.L
        jsr       (A3)
        addq.w    #8,A7
 ; printf("\r\n%s", NamesAndStudentNumbers);
        move.l    -4(A6),-(A7)
-       pea       @lab3_185.L
+       pea       @lab3_186.L
        jsr       (A3)
        addq.w    #8,A7
 ; menu();
@@ -5402,423 +5428,426 @@ main_9:
        dc.b      103,114,97,109,32,70,114,111,109,32,83,80,73
        dc.b      32,70,108,97,115,104,46,46,46,46,0
 @lab3_30:
+       dc.b      103,97,114,98,97,103,101,32,118,97,108,117,101
+       dc.b      32,114,101,97,100,33,13,10,0
+@lab3_31:
        dc.b      13,10,68,111,110,101,32,108,111,97,100,105,110
        dc.b      103,46,13,10,0
-@lab3_31:
-       dc.b      36,37,48,56,88,32,32,0
 @lab3_32:
-       dc.b      32,0
+       dc.b      36,37,48,56,88,32,32,0
 @lab3_33:
-       dc.b      37,99,0
+       dc.b      32,0
 @lab3_34:
-       dc.b      0
+       dc.b      37,99,0
 @lab3_35:
+       dc.b      0
+@lab3_36:
        dc.b      13,10,13,10,32,68,48,32,61,32,36,37,48,56,88
        dc.b      32,32,65,48,32,61,32,36,37,48,56,88,0
-@lab3_36:
+@lab3_37:
        dc.b      13,10,32,68,49,32,61,32,36,37,48,56,88,32,32
        dc.b      65,49,32,61,32,36,37,48,56,88,0
-@lab3_37:
+@lab3_38:
        dc.b      13,10,32,68,50,32,61,32,36,37,48,56,88,32,32
        dc.b      65,50,32,61,32,36,37,48,56,88,0
-@lab3_38:
+@lab3_39:
        dc.b      13,10,32,68,51,32,61,32,36,37,48,56,88,32,32
        dc.b      65,51,32,61,32,36,37,48,56,88,0
-@lab3_39:
+@lab3_40:
        dc.b      13,10,32,68,52,32,61,32,36,37,48,56,88,32,32
        dc.b      65,52,32,61,32,36,37,48,56,88,0
-@lab3_40:
+@lab3_41:
        dc.b      13,10,32,68,53,32,61,32,36,37,48,56,88,32,32
        dc.b      65,53,32,61,32,36,37,48,56,88,0
-@lab3_41:
+@lab3_42:
        dc.b      13,10,32,68,54,32,61,32,36,37,48,56,88,32,32
        dc.b      65,54,32,61,32,36,37,48,56,88,0
-@lab3_42:
+@lab3_43:
        dc.b      13,10,32,68,55,32,61,32,36,37,48,56,88,32,32
        dc.b      65,55,32,61,32,36,37,48,56,88,0
-@lab3_43:
+@lab3_44:
        dc.b      13,10,13,10,85,83,80,32,61,32,36,37,48,56,88
        dc.b      32,32,40,65,55,41,32,85,115,101,114,32,83,80
        dc.b      0
-@lab3_44:
+@lab3_45:
        dc.b      13,10,83,83,80,32,61,32,36,37,48,56,88,32,32
        dc.b      40,65,55,41,32,83,117,112,101,114,118,105,115
        dc.b      111,114,32,83,80,0
-@lab3_45:
+@lab3_46:
        dc.b      13,10,32,83,82,32,61,32,36,37,48,52,88,32,32
        dc.b      32,0
-@lab3_46:
-       dc.b      32,32,32,91,0
 @lab3_47:
+       dc.b      32,32,32,91,0
+@lab3_48:
        dc.b      13,10,32,80,67,32,61,32,36,37,48,56,88,32,32
        dc.b      0
-@lab3_48:
-       dc.b      91,64,32,66,82,69,65,75,80,79,73,78,84,93,0
 @lab3_49:
-       dc.b      13,10,87,80,37,100,32,61,32,37,115,0
+       dc.b      91,64,32,66,82,69,65,75,80,79,73,78,84,93,0
 @lab3_50:
+       dc.b      13,10,87,80,37,100,32,61,32,37,115,0
+@lab3_51:
        dc.b      13,10,13,10,13,10,13,10,13,10,13,10,83,105,110
        dc.b      103,108,101,32,83,116,101,112,32,32,58,91,79
        dc.b      78,93,0
-@lab3_51:
+@lab3_52:
        dc.b      13,10,66,114,101,97,107,32,80,111,105,110,116
        dc.b      115,32,58,91,68,105,115,97,98,108,101,100,93
        dc.b      0
-@lab3_52:
+@lab3_53:
        dc.b      13,10,80,114,101,115,115,32,60,83,80,65,67,69
        dc.b      62,32,116,111,32,69,120,101,99,117,116,101,32
        dc.b      78,101,120,116,32,73,110,115,116,114,117,99
        dc.b      116,105,111,110,0
-@lab3_53:
+@lab3_54:
        dc.b      13,10,80,114,101,115,115,32,60,69,83,67,62,32
        dc.b      116,111,32,82,101,115,117,109,101,32,80,114
        dc.b      111,103,114,97,109,0
-@lab3_54:
+@lab3_55:
        dc.b      13,10,73,108,108,101,103,97,108,32,68,97,116
        dc.b      97,32,82,101,103,105,115,116,101,114,32,58,32
        dc.b      85,115,101,32,68,48,45,68,55,46,46,46,46,46
        dc.b      13,10,0
-@lab3_55:
-       dc.b      13,10,68,37,99,32,61,32,0
 @lab3_56:
+       dc.b      13,10,68,37,99,32,61,32,0
+@lab3_57:
        dc.b      13,10,73,108,108,101,103,97,108,32,65,100,100
        dc.b      114,101,115,115,32,82,101,103,105,115,116,101
        dc.b      114,32,58,32,85,115,101,32,65,48,45,65,55,46
        dc.b      46,46,46,46,13,10,0
-@lab3_57:
-       dc.b      13,10,65,37,99,32,61,32,0
 @lab3_58:
-       dc.b      13,10,85,115,101,114,32,83,80,32,61,32,0
+       dc.b      13,10,65,37,99,32,61,32,0
 @lab3_59:
+       dc.b      13,10,85,115,101,114,32,83,80,32,61,32,0
+@lab3_60:
        dc.b      13,10,73,108,108,101,103,97,108,32,82,101,103
        dc.b      105,115,116,101,114,46,46,46,46,0
-@lab3_60:
+@lab3_61:
        dc.b      13,10,83,121,115,116,101,109,32,83,80,32,61
        dc.b      32,0
-@lab3_61:
-       dc.b      13,10,80,67,32,61,32,0
 @lab3_62:
-       dc.b      13,10,83,82,32,61,32,0
+       dc.b      13,10,80,67,32,61,32,0
 @lab3_63:
+       dc.b      13,10,83,82,32,61,32,0
+@lab3_64:
        dc.b      13,10,73,108,108,101,103,97,108,32,82,101,103
        dc.b      105,115,116,101,114,58,32,85,115,101,32,65,48
        dc.b      45,65,55,44,32,68,48,45,68,55,44,32,83,83,80
        dc.b      44,32,85,83,80,44,32,80,67,32,111,114,32,83
        dc.b      82,13,10,0
-@lab3_64:
+@lab3_65:
        dc.b      13,10,13,10,78,117,109,32,32,32,32,32,65,100
        dc.b      100,114,101,115,115,32,32,32,32,32,32,73,110
        dc.b      115,116,114,117,99,116,105,111,110,0
-@lab3_65:
+@lab3_66:
        dc.b      13,10,45,45,45,32,32,32,32,32,45,45,45,45,45
        dc.b      45,45,45,45,32,32,32,32,45,45,45,45,45,45,45
        dc.b      45,45,45,45,0
-@lab3_66:
+@lab3_67:
        dc.b      13,10,78,111,32,66,114,101,97,107,80,111,105
        dc.b      110,116,115,32,83,101,116,0
-@lab3_67:
+@lab3_68:
        dc.b      13,10,37,51,100,32,32,32,32,32,36,37,48,56,120
        dc.b      0
-@lab3_68:
+@lab3_69:
        dc.b      13,10,78,117,109,32,32,32,32,32,65,100,100,114
        dc.b      101,115,115,0
-@lab3_69:
+@lab3_70:
        dc.b      13,10,45,45,45,32,32,32,32,32,45,45,45,45,45
        dc.b      45,45,45,45,0
-@lab3_70:
+@lab3_71:
        dc.b      13,10,78,111,32,87,97,116,99,104,80,111,105
        dc.b      110,116,115,32,83,101,116,0
-@lab3_71:
+@lab3_72:
        dc.b      13,10,69,110,116,101,114,32,66,114,101,97,107
        dc.b      32,80,111,105,110,116,32,78,117,109,98,101,114
        dc.b      58,32,0
-@lab3_72:
+@lab3_73:
        dc.b      13,10,73,108,108,101,103,97,108,32,82,97,110
        dc.b      103,101,32,58,32,85,115,101,32,48,32,45,32,55
        dc.b      0
-@lab3_73:
+@lab3_74:
        dc.b      13,10,66,114,101,97,107,32,80,111,105,110,116
        dc.b      32,67,108,101,97,114,101,100,46,46,46,46,46
        dc.b      13,10,0
-@lab3_74:
+@lab3_75:
        dc.b      13,10,66,114,101,97,107,32,80,111,105,110,116
        dc.b      32,119,97,115,110,39,116,32,83,101,116,46,46
        dc.b      46,46,46,0
-@lab3_75:
+@lab3_76:
        dc.b      13,10,69,110,116,101,114,32,87,97,116,99,104
        dc.b      32,80,111,105,110,116,32,78,117,109,98,101,114
        dc.b      58,32,0
-@lab3_76:
+@lab3_77:
        dc.b      13,10,87,97,116,99,104,32,80,111,105,110,116
        dc.b      32,67,108,101,97,114,101,100,46,46,46,46,46
        dc.b      13,10,0
-@lab3_77:
+@lab3_78:
        dc.b      13,10,87,97,116,99,104,32,80,111,105,110,116
        dc.b      32,87,97,115,32,110,111,116,32,83,101,116,46
        dc.b      46,46,46,46,0
-@lab3_78:
+@lab3_79:
        dc.b      13,10,78,111,32,70,82,69,69,32,66,114,101,97
        dc.b      107,32,80,111,105,110,116,115,46,46,46,46,46
        dc.b      0
-@lab3_79:
+@lab3_80:
        dc.b      13,10,66,114,101,97,107,32,80,111,105,110,116
        dc.b      32,65,100,100,114,101,115,115,58,32,0
-@lab3_80:
+@lab3_81:
        dc.b      13,10,69,114,114,111,114,32,58,32,66,114,101
        dc.b      97,107,32,80,111,105,110,116,115,32,67,65,78
        dc.b      78,79,84,32,98,101,32,115,101,116,32,97,116
        dc.b      32,79,68,68,32,97,100,100,114,101,115,115,101
        dc.b      115,0
-@lab3_81:
+@lab3_82:
        dc.b      13,10,69,114,114,111,114,32,58,32,66,114,101
        dc.b      97,107,32,80,111,105,110,116,115,32,67,65,78
        dc.b      78,79,84,32,98,101,32,115,101,116,32,102,111
        dc.b      114,32,82,79,77,32,105,110,32,82,97,110,103
        dc.b      101,32,58,32,91,36,48,45,36,48,48,48,48,55,70
        dc.b      70,70,93,0
-@lab3_82:
+@lab3_83:
        dc.b      13,10,69,114,114,111,114,58,32,66,114,101,97
        dc.b      107,32,80,111,105,110,116,32,65,108,114,101
        dc.b      97,100,121,32,69,120,105,115,116,115,32,97,116
        dc.b      32,65,100,100,114,101,115,115,32,58,32,37,48
        dc.b      56,120,13,10,0
-@lab3_83:
+@lab3_84:
        dc.b      13,10,66,114,101,97,107,32,80,111,105,110,116
        dc.b      32,83,101,116,32,97,116,32,65,100,100,114,101
        dc.b      115,115,58,32,91,36,37,48,56,120,93,0
-@lab3_84:
+@lab3_85:
        dc.b      13,10,78,111,32,70,82,69,69,32,87,97,116,99
        dc.b      104,32,80,111,105,110,116,115,46,46,46,46,46
        dc.b      0
-@lab3_85:
+@lab3_86:
        dc.b      13,10,87,97,116,99,104,32,80,111,105,110,116
        dc.b      32,65,100,100,114,101,115,115,58,32,0
-@lab3_86:
+@lab3_87:
        dc.b      13,10,69,114,114,111,114,58,32,87,97,116,99
        dc.b      104,32,80,111,105,110,116,32,65,108,114,101
        dc.b      97,100,121,32,83,101,116,32,97,116,32,65,100
        dc.b      100,114,101,115,115,32,58,32,37,48,56,120,13
        dc.b      10,0
-@lab3_87:
+@lab3_88:
        dc.b      13,10,87,97,116,99,104,32,80,111,105,110,116
        dc.b      32,83,101,116,32,97,116,32,65,100,100,114,101
        dc.b      115,115,58,32,91,36,37,48,56,120,93,0
-@lab3_88:
+@lab3_89:
        dc.b      13,10,13,10,13,10,13,10,64,66,82,69,65,75,80
        dc.b      79,73,78,84,0
-@lab3_89:
+@lab3_90:
        dc.b      13,10,83,105,110,103,108,101,32,83,116,101,112
        dc.b      32,58,32,91,79,78,93,0
-@lab3_90:
+@lab3_91:
        dc.b      13,10,66,114,101,97,107,80,111,105,110,116,115
        dc.b      32,58,32,91,69,110,97,98,108,101,100,93,0
-@lab3_91:
+@lab3_92:
        dc.b      13,10,80,114,101,115,115,32,60,69,83,67,62,32
        dc.b      116,111,32,82,101,115,117,109,101,32,85,115
        dc.b      101,114,32,80,114,111,103,114,97,109,13,10,0
-@lab3_92:
+@lab3_93:
        dc.b      13,10,85,110,107,110,111,119,110,32,67,111,109
        dc.b      109,97,110,100,46,46,46,46,46,13,10,0
-@lab3_93:
+@lab3_94:
        dc.b      13,10,80,114,111,103,114,97,109,32,69,110,100
        dc.b      101,100,32,40,84,82,65,80,32,35,49,53,41,46
        dc.b      46,46,46,0
-@lab3_94:
+@lab3_95:
        dc.b      13,10,75,105,108,108,32,65,108,108,32,66,114
        dc.b      101,97,107,32,80,111,105,110,116,115,46,46,46
        dc.b      40,121,47,110,41,63,0
-@lab3_95:
+@lab3_96:
        dc.b      13,10,75,105,108,108,32,65,108,108,32,87,97
        dc.b      116,99,104,32,80,111,105,110,116,115,46,46,46
        dc.b      40,121,47,110,41,63,0
-@lab3_96:
+@lab3_97:
        dc.b      13,10,45,45,45,45,45,45,45,45,45,45,45,45,45
        dc.b      45,45,45,45,45,45,45,45,45,45,45,45,45,45,45
        dc.b      45,45,45,45,45,45,45,45,45,45,45,45,45,45,45
        dc.b      45,45,45,45,45,45,45,45,45,45,45,45,45,45,45
        dc.b      45,45,45,45,45,45,0
-@lab3_97:
+@lab3_98:
        dc.b      13,10,32,32,68,101,98,117,103,103,101,114,32
        dc.b      67,111,109,109,97,110,100,32,83,117,109,109
        dc.b      97,114,121,0
-@lab3_98:
+@lab3_99:
        dc.b      13,10,32,32,46,40,114,101,103,41,32,32,32,32
        dc.b      32,32,32,45,32,67,104,97,110,103,101,32,82,101
        dc.b      103,105,115,116,101,114,115,58,32,101,46,103
        dc.b      32,65,48,45,65,55,44,68,48,45,68,55,44,80,67
        dc.b      44,83,83,80,44,85,83,80,44,83,82,0
-@lab3_99:
+@lab3_100:
        dc.b      13,10,32,32,66,68,47,66,83,47,66,67,47,66,75
        dc.b      32,32,45,32,66,114,101,97,107,32,80,111,105
        dc.b      110,116,58,32,68,105,115,112,108,97,121,47,83
        dc.b      101,116,47,67,108,101,97,114,47,75,105,108,108
        dc.b      0
-@lab3_100:
+@lab3_101:
        dc.b      13,10,32,32,67,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,67,111,112,121,32,80,114,111,103
        dc.b      114,97,109,32,102,114,111,109,32,70,108,97,115
        dc.b      104,32,116,111,32,77,97,105,110,32,77,101,109
        dc.b      111,114,121,0
-@lab3_101:
+@lab3_102:
        dc.b      13,10,32,32,68,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,68,117,109,112,32,77,101,109,111
        dc.b      114,121,32,67,111,110,116,101,110,116,115,32
        dc.b      116,111,32,83,99,114,101,101,110,0
-@lab3_102:
+@lab3_103:
        dc.b      13,10,32,32,69,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,69,110,116,101,114,32,83,116,114
        dc.b      105,110,103,32,105,110,116,111,32,77,101,109
        dc.b      111,114,121,0
-@lab3_103:
+@lab3_104:
        dc.b      13,10,32,32,70,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,70,105,108,108,32,77,101,109,111
        dc.b      114,121,32,119,105,116,104,32,68,97,116,97,0
-@lab3_104:
+@lab3_105:
        dc.b      13,10,32,32,71,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,71,111,32,80,114,111,103,114,97
        dc.b      109,32,83,116,97,114,116,105,110,103,32,97,116
        dc.b      32,65,100,100,114,101,115,115,58,32,36,37,48
        dc.b      56,88,0
-@lab3_105:
+@lab3_106:
        dc.b      13,10,32,32,76,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,76,111,97,100,32,80,114,111,103
        dc.b      114,97,109,32,40,46,72,69,88,32,102,105,108
        dc.b      101,41,32,102,114,111,109,32,76,97,112,116,111
        dc.b      112,0
-@lab3_106:
+@lab3_107:
        dc.b      13,10,32,32,77,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,77,101,109,111,114,121,32,69,120
        dc.b      97,109,105,110,101,32,97,110,100,32,67,104,97
        dc.b      110,103,101,0
-@lab3_107:
+@lab3_108:
        dc.b      13,10,32,32,80,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,80,114,111,103,114,97,109,32,70
        dc.b      108,97,115,104,32,77,101,109,111,114,121,32
        dc.b      119,105,116,104,32,85,115,101,114,32,80,114
        dc.b      111,103,114,97,109,0
-@lab3_108:
+@lab3_109:
        dc.b      13,10,32,32,82,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,68,105,115,112,108,97,121,32,54
        dc.b      56,48,48,48,32,82,101,103,105,115,116,101,114
        dc.b      115,0
-@lab3_109:
+@lab3_110:
        dc.b      13,10,32,32,83,32,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,84,111,103,103,108,101,32,79,78
        dc.b      47,79,70,70,32,83,105,110,103,108,101,32,83
        dc.b      116,101,112,32,77,111,100,101,0
-@lab3_110:
+@lab3_111:
        dc.b      13,10,32,32,84,77,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,84,101,115,116,32,77,101,109,111
        dc.b      114,121,0
-@lab3_111:
+@lab3_112:
        dc.b      13,10,32,32,84,83,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,84,101,115,116,32,83,119,105,116
        dc.b      99,104,101,115,58,32,83,87,55,45,48,0
-@lab3_112:
+@lab3_113:
        dc.b      13,10,32,32,84,68,32,32,32,32,32,32,32,32,32
        dc.b      32,32,45,32,84,101,115,116,32,68,105,115,112
        dc.b      108,97,121,115,58,32,76,69,68,115,32,97,110
        dc.b      100,32,55,45,83,101,103,109,101,110,116,0
-@lab3_113:
+@lab3_114:
        dc.b      13,10,32,32,87,68,47,87,83,47,87,67,47,87,75
        dc.b      32,32,45,32,87,97,116,99,104,32,80,111,105,110
        dc.b      116,58,32,68,105,115,112,108,97,121,47,83,101
        dc.b      116,47,67,108,101,97,114,47,75,105,108,108,0
-@lab3_114:
-       dc.b      13,10,35,0
 @lab3_115:
+       dc.b      13,10,35,0
+@lab3_116:
        dc.b      13,10,80,114,111,103,114,97,109,32,82,117,110
        dc.b      110,105,110,103,46,46,46,46,46,0
-@lab3_116:
+@lab3_117:
        dc.b      13,10,80,114,101,115,115,32,60,82,69,83,69,84
        dc.b      62,32,98,117,116,116,111,110,32,60,75,101,121
        dc.b      48,62,32,111,110,32,68,69,49,32,116,111,32,115
        dc.b      116,111,112,0
-@lab3_117:
+@lab3_118:
        dc.b      13,10,69,114,114,111,114,58,32,80,114,101,115
        dc.b      115,32,39,71,39,32,102,105,114,115,116,32,116
        dc.b      111,32,115,116,97,114,116,32,112,114,111,103
        dc.b      114,97,109,0
-@lab3_118:
+@lab3_119:
        dc.b      13,10,83,105,110,103,108,101,32,83,116,101,112
        dc.b      32,32,58,91,79,78,93,0
-@lab3_119:
+@lab3_120:
        dc.b      13,10,80,114,101,115,115,32,39,71,39,32,116
        dc.b      111,32,84,114,97,99,101,32,80,114,111,103,114
        dc.b      97,109,32,102,114,111,109,32,97,100,100,114
        dc.b      101,115,115,32,36,37,88,46,46,46,46,46,0
-@lab3_120:
+@lab3_121:
        dc.b      13,10,80,117,115,104,32,60,82,69,83,69,84,32
        dc.b      66,117,116,116,111,110,62,32,116,111,32,83,116
        dc.b      111,112,46,46,46,46,46,0
-@lab3_121:
+@lab3_122:
        dc.b      13,10,83,105,110,103,108,101,32,83,116,101,112
        dc.b      32,58,32,91,79,70,70,93,0
-@lab3_122:
+@lab3_123:
        dc.b      13,10,66,114,101,97,107,32,80,111,105,110,116
        dc.b      115,32,58,91,69,110,97,98,108,101,100,93,0
-@lab3_123:
+@lab3_124:
        dc.b      13,10,80,114,101,115,115,32,60,69,83,67,62,32
        dc.b      116,111,32,82,101,115,117,109,101,32,85,115
        dc.b      101,114,32,80,114,111,103,114,97,109,46,46,46
        dc.b      46,46,0
-@lab3_124:
+@lab3_125:
        dc.b      13,10,83,105,110,103,108,101,32,83,116,101,112
        dc.b      32,32,58,91,79,70,70,93,0
-@lab3_125:
+@lab3_126:
        dc.b      13,10,13,10,80,114,111,103,114,97,109,32,65
        dc.b      66,79,82,84,32,33,33,33,33,33,33,13,10,0
-@lab3_126:
-       dc.b      37,115,13,10,0
 @lab3_127:
+       dc.b      37,115,13,10,0
+@lab3_128:
        dc.b      13,10,13,10,80,114,111,103,114,97,109,32,65
        dc.b      66,79,82,84,32,33,33,33,33,33,0
-@lab3_128:
+@lab3_129:
        dc.b      13,10,85,110,104,97,110,100,108,101,100,32,73
        dc.b      110,116,101,114,114,117,112,116,58,32,73,82
        dc.b      81,37,100,32,33,33,33,33,33,0
-@lab3_129:
+@lab3_130:
        dc.b      65,68,68,82,69,83,83,32,69,82,82,79,82,58,32
        dc.b      49,54,32,111,114,32,51,50,32,66,105,116,32,84
        dc.b      114,97,110,115,102,101,114,32,116,111,47,102
        dc.b      114,111,109,32,97,110,32,79,68,68,32,65,100
        dc.b      100,114,101,115,115,46,46,46,46,0
-@lab3_130:
+@lab3_131:
        dc.b      85,110,104,97,110,100,108,101,100,32,84,114
        dc.b      97,112,32,33,33,33,33,33,0
-@lab3_131:
-       dc.b      66,85,83,32,69,114,114,111,114,33,0
 @lab3_132:
+       dc.b      66,85,83,32,69,114,114,111,114,33,0
+@lab3_133:
        dc.b      65,68,68,82,69,83,83,32,69,114,114,111,114,33
        dc.b      0
-@lab3_133:
+@lab3_134:
        dc.b      73,76,76,69,71,65,76,32,73,78,83,84,82,85,67
        dc.b      84,73,79,78,0
-@lab3_134:
-       dc.b      68,73,86,73,68,69,32,66,89,32,90,69,82,79,0
 @lab3_135:
+       dc.b      68,73,86,73,68,69,32,66,89,32,90,69,82,79,0
+@lab3_136:
        dc.b      39,67,72,75,39,32,73,78,83,84,82,85,67,84,73
        dc.b      79,78,0
-@lab3_136:
+@lab3_137:
        dc.b      84,82,65,80,86,32,73,78,83,84,82,85,67,84,73
        dc.b      79,78,0
-@lab3_137:
+@lab3_138:
        dc.b      80,82,73,86,73,76,69,71,69,32,86,73,79,76,65
        dc.b      84,73,79,78,0
-@lab3_138:
+@lab3_139:
        dc.b      85,78,73,78,73,84,73,65,76,73,83,69,68,32,73
        dc.b      82,81,0
-@lab3_139:
-       dc.b      83,80,85,82,73,79,85,83,32,73,82,81,0
 @lab3_140:
+       dc.b      83,80,85,82,73,79,85,83,32,73,82,81,0
+@lab3_141:
        dc.b      13,10,83,116,97,114,116,32,65,100,100,114,101
        dc.b      115,115,32,105,110,32,77,101,109,111,114,121
        dc.b      58,32,0
-@lab3_141:
+@lab3_142:
        dc.b      13,10,69,110,116,101,114,32,83,116,114,105,110
        dc.b      103,32,40,69,83,67,32,116,111,32,101,110,100
        dc.b      41,32,58,0
-@lab3_142:
+@lab3_143:
        dc.b      13,10,83,101,108,101,99,116,32,100,97,116,97
        dc.b      32,116,121,112,101,58,10,49,32,61,32,98,121
        dc.b      116,101,115,32,40,56,32,98,105,116,115,41,10
@@ -5826,34 +5855,34 @@ main_9:
        dc.b      32,98,105,116,115,41,10,51,32,61,32,108,111
        dc.b      110,103,32,119,111,114,100,115,32,40,51,50,32
        dc.b      98,105,116,115,41,10,0
-@lab3_143:
+@lab3_144:
        dc.b      10,83,101,108,101,99,116,105,110,103,32,98,121
        dc.b      116,101,32,115,105,122,101,10,0
-@lab3_144:
+@lab3_145:
        dc.b      83,101,108,101,99,116,32,100,97,116,97,32,118
        dc.b      97,108,117,101,58,10,0
-@lab3_145:
+@lab3_146:
        dc.b      49,32,61,32,34,65,65,34,10,50,32,61,32,34,65
        dc.b      66,34,10,51,32,61,32,34,67,67,34,10,52,32,61
        dc.b      32,34,67,68,34,10,0
-@lab3_146:
+@lab3_147:
        dc.b      13,10,69,82,82,79,82,58,32,83,101,108,101,99
        dc.b      116,32,101,105,116,104,101,114,32,49,44,32,50
        dc.b      44,32,51,44,32,111,114,32,52,13,10,0
-@lab3_147:
+@lab3_148:
        dc.b      13,10,69,82,82,79,82,58,32,69,120,105,116,105
        dc.b      110,103,32,109,101,109,111,114,121,32,116,101
        dc.b      115,116,32,100,117,101,32,116,111,32,111,112
        dc.b      116,105,111,110,32,109,101,109,111,114,121,32
        dc.b      99,111,109,112,108,105,99,97,116,105,111,110
        dc.b      46,13,10,0
-@lab3_148:
+@lab3_149:
        dc.b      13,10,69,110,116,101,114,32,115,116,97,114,116
        dc.b      32,97,100,100,114,101,115,115,32,119,105,116
        dc.b      104,105,110,32,48,120,48,57,48,48,48,48,48,48
        dc.b      32,45,32,48,120,48,57,55,70,70,70,70,70,58,13
        dc.b      10,0
-@lab3_149:
+@lab3_150:
        dc.b      13,10,69,82,82,79,82,58,32,83,116,97,114,116
        dc.b      105,110,103,32,65,100,100,114,101,115,115,32
        dc.b      105,115,32,111,117,116,115,105,100,101,32,111
@@ -5863,12 +5892,12 @@ main_9:
        dc.b      115,32,105,115,32,119,105,116,104,110,32,48
        dc.b      120,48,57,48,48,48,48,48,48,32,45,32,48,120
        dc.b      48,57,55,70,70,70,70,70,13,10,0
-@lab3_150:
+@lab3_151:
        dc.b      13,10,69,110,116,101,114,32,101,110,100,32,97
        dc.b      100,100,114,101,115,115,32,119,105,116,104,105
        dc.b      110,32,48,120,48,57,48,48,48,48,48,48,32,45
        dc.b      32,48,120,48,57,55,70,70,70,70,70,58,13,10,0
-@lab3_151:
+@lab3_152:
        dc.b      13,10,69,82,82,79,82,58,32,69,110,100,32,65
        dc.b      100,100,114,101,115,115,32,105,115,32,111,117
        dc.b      116,115,105,100,101,32,111,102,32,54,56,75,32
@@ -5878,24 +5907,24 @@ main_9:
        dc.b      119,105,116,104,110,32,48,120,48,57,48,48,48
        dc.b      48,48,48,32,45,32,48,120,48,57,55,70,70,70,70
        dc.b      70,13,10,0
-@lab3_152:
+@lab3_153:
        dc.b      13,10,13,10,87,114,105,116,105,110,103,32,116
        dc.b      111,32,109,101,109,111,114,121,0
-@lab3_153:
+@lab3_154:
        dc.b      13,10,87,114,105,116,101,58,32,91,37,48,50,88
        dc.b      32,116,111,32,37,48,56,120,93,0
-@lab3_154:
+@lab3_155:
        dc.b      13,10,13,10,83,116,97,114,116,105,110,103,32
        dc.b      109,101,109,111,114,121,32,118,97,108,105,100
        dc.b      97,116,105,111,110,32,116,101,115,116,0
-@lab3_155:
+@lab3_156:
        dc.b      13,10,86,101,114,105,102,121,105,110,103,32
        dc.b      116,104,101,32,97,100,100,114,101,115,115,101
        dc.b      115,32,91,37,48,56,120,32,116,111,32,37,48,56
        dc.b      120,93,32,99,111,110,116,97,105,110,115,32,116
        dc.b      101,115,116,32,100,97,116,97,32,91,37,48,50
        dc.b      88,93,46,46,46,46,46,0
-@lab3_156:
+@lab3_157:
        dc.b      13,10,69,82,82,79,82,58,32,68,97,116,97,32,119
        dc.b      105,116,104,105,110,32,109,101,109,111,114,121
        dc.b      32,100,111,101,115,32,110,111,116,32,109,97
@@ -5907,20 +5936,20 @@ main_9:
        dc.b      68,97,116,97,58,32,37,48,50,88,93,32,69,120
        dc.b      105,116,105,110,103,32,109,101,109,111,114,121
        dc.b      32,116,101,115,116,46,46,46,13,10,0
-@lab3_157:
+@lab3_158:
        dc.b      13,10,80,65,83,83,58,32,77,101,109,111,114,121
        dc.b      32,86,97,108,105,100,97,116,105,111,110,32,116
        dc.b      101,115,116,32,104,97,115,32,112,97,115,115
        dc.b      101,100,13,10,0
-@lab3_158:
+@lab3_159:
        dc.b      13,10,83,101,108,101,99,116,105,110,103,32,119
        dc.b      111,114,100,32,115,105,122,101,0
-@lab3_159:
+@lab3_160:
        dc.b      13,10,49,32,61,32,34,65,65,65,65,34,10,50,32
        dc.b      61,32,34,66,65,66,65,34,10,51,32,61,32,34,67
        dc.b      67,68,68,34,10,52,32,61,32,34,68,68,68,68,34
        dc.b      13,10,0
-@lab3_160:
+@lab3_161:
        dc.b      13,10,69,110,116,101,114,32,115,116,97,114,116
        dc.b      32,97,100,100,114,101,115,115,32,119,105,116
        dc.b      104,105,110,32,48,120,48,57,48,48,48,48,48,48
@@ -5928,13 +5957,13 @@ main_9:
        dc.b      40,69,110,115,117,114,101,32,116,111,32,101
        dc.b      110,116,101,114,32,97,110,32,101,118,101,110
        dc.b      32,110,117,109,98,101,114,41,13,10,0
-@lab3_161:
+@lab3_162:
        dc.b      13,10,69,82,82,79,82,58,32,84,104,101,32,97
        dc.b      100,100,114,101,115,115,32,121,111,117,32,104
        dc.b      97,118,101,32,101,110,116,101,114,101,100,32
        dc.b      105,115,32,110,111,116,32,101,118,101,110,46
        dc.b      32,84,114,121,32,97,103,97,105,110,13,10,0
-@lab3_162:
+@lab3_163:
        dc.b      13,10,69,110,116,101,114,32,101,110,100,32,97
        dc.b      100,100,114,101,115,115,32,119,105,116,104,105
        dc.b      110,32,48,120,48,57,48,48,48,48,48,48,32,45
@@ -5942,10 +5971,10 @@ main_9:
        dc.b      110,115,117,114,101,32,116,111,32,101,110,116
        dc.b      101,114,32,97,110,32,101,118,101,110,32,110
        dc.b      117,109,98,101,114,41,13,10,0
-@lab3_163:
+@lab3_164:
        dc.b      13,10,87,82,73,84,69,58,32,91,37,48,52,88,32
        dc.b      116,111,32,37,48,56,120,93,0
-@lab3_164:
+@lab3_165:
        dc.b      13,10,69,82,82,79,82,58,32,68,97,116,97,32,119
        dc.b      105,116,104,105,110,32,109,101,109,111,114,121
        dc.b      32,100,111,101,115,32,110,111,116,32,109,97
@@ -5957,36 +5986,36 @@ main_9:
        dc.b      68,97,116,97,58,32,37,48,50,88,93,32,69,120
        dc.b      105,116,105,110,103,32,109,101,109,111,114,121
        dc.b      32,116,101,115,116,46,46,46,0
-@lab3_165:
+@lab3_166:
        dc.b      13,10,80,65,83,83,58,32,77,101,109,111,114,121
        dc.b      32,86,97,108,105,100,97,116,105,111,110,32,116
        dc.b      101,115,116,32,104,97,115,32,112,97,115,115
        dc.b      101,100,46,13,10,0
-@lab3_166:
+@lab3_167:
        dc.b      13,10,83,101,108,101,99,116,105,110,103,32,108
        dc.b      111,110,103,32,119,111,114,100,32,115,105,122
        dc.b      101,0
-@lab3_167:
+@lab3_168:
        dc.b      13,10,83,101,108,101,99,116,32,100,97,116,97
        dc.b      32,118,97,108,117,101,58,0
-@lab3_168:
+@lab3_169:
        dc.b      13,10,49,32,61,32,34,65,65,65,65,65,65,65,65
        dc.b      34,10,50,32,61,32,34,65,66,65,66,65,66,65,66
        dc.b      34,10,51,32,61,32,34,67,67,67,67,68,68,68,68
        dc.b      34,10,52,32,61,32,34,65,65,66,66,67,67,68,68
        dc.b      34,13,10,0
-@lab3_169:
+@lab3_170:
        dc.b      13,10,83,101,108,101,99,116,32,101,105,116,104
        dc.b      101,114,32,49,44,32,50,44,32,51,44,32,111,114
        dc.b      32,52,46,13,10,0
-@lab3_170:
+@lab3_171:
        dc.b      13,10,69,82,82,79,82,58,32,69,120,105,116,105
        dc.b      110,103,32,109,101,109,111,114,121,32,116,101
        dc.b      115,116,32,100,117,101,32,116,111,32,111,112
        dc.b      116,105,111,110,32,109,101,109,111,114,121,32
        dc.b      99,111,109,112,108,105,99,97,116,105,111,110
        dc.b      46,32,13,10,0
-@lab3_171:
+@lab3_172:
        dc.b      13,10,69,82,82,79,82,58,32,83,116,97,114,116
        dc.b      105,110,103,32,65,100,100,114,101,115,115,32
        dc.b      105,115,32,111,117,116,115,105,100,101,32,111
@@ -5998,7 +6027,7 @@ main_9:
        dc.b      119,105,116,104,110,32,48,120,48,57,48,48,48
        dc.b      48,48,48,32,45,32,48,120,48,57,55,70,70,70,70
        dc.b      70,13,10,0
-@lab3_172:
+@lab3_173:
        dc.b      13,10,69,82,82,79,82,58,32,69,110,100,32,65
        dc.b      100,100,114,101,115,115,32,105,115,32,111,117
        dc.b      116,115,105,100,101,32,111,102,32,54,56,75,32
@@ -6009,22 +6038,22 @@ main_9:
        dc.b      101,115,115,32,105,115,32,119,105,116,104,110
        dc.b      32,48,120,48,57,48,48,48,48,48,48,32,45,32,48
        dc.b      120,48,57,55,70,70,70,70,70,13,10,0
-@lab3_173:
+@lab3_174:
        dc.b      13,10,69,82,82,79,82,58,32,84,104,101,32,97
        dc.b      100,100,114,101,115,115,32,121,111,117,32,104
        dc.b      97,118,101,32,101,110,116,101,114,101,100,32
        dc.b      105,115,32,110,111,116,32,101,118,101,110,46
        dc.b      32,80,108,101,97,115,101,32,116,114,121,32,97
        dc.b      103,97,105,110,13,10,0
-@lab3_174:
+@lab3_175:
        dc.b      13,10,87,65,82,78,73,78,71,58,32,77,101,109
        dc.b      111,114,121,32,119,105,108,108,32,99,111,110
        dc.b      116,97,105,110,32,116,114,117,110,99,97,116
        dc.b      101,100,32,100,97,116,97,0
-@lab3_175:
+@lab3_176:
        dc.b      13,10,87,82,73,84,69,58,32,91,37,48,56,88,32
        dc.b      116,111,32,37,48,56,120,93,0
-@lab3_176:
+@lab3_177:
        dc.b      13,10,69,82,82,79,82,58,32,68,97,116,97,32,119
        dc.b      105,116,104,105,110,32,109,101,109,111,114,121
        dc.b      32,100,111,101,115,32,110,111,116,32,109,97
@@ -6036,12 +6065,12 @@ main_9:
        dc.b      68,97,116,97,58,32,37,48,56,88,93,32,69,120
        dc.b      105,116,105,110,103,32,109,101,109,111,114,121
        dc.b      32,116,101,115,116,46,46,46,13,10,0
-@lab3_177:
+@lab3_178:
        dc.b      13,10,80,65,83,83,58,32,77,101,109,111,114,121
        dc.b      32,86,97,108,105,100,97,116,105,111,110,32,116
        dc.b      101,115,116,32,104,97,115,32,112,97,115,115
        dc.b      101,100,33,13,10,0
-@lab3_178:
+@lab3_179:
        dc.b      13,10,89,111,117,32,102,97,105,108,101,100,32
        dc.b      116,111,32,115,101,108,101,99,116,32,97,32,100
        dc.b      97,116,97,32,116,121,112,101,32,116,111,32,117
@@ -6049,35 +6078,35 @@ main_9:
        dc.b      110,32,109,101,109,111,114,121,32,116,101,115
        dc.b      116,32,97,103,97,105,110,32,116,111,32,116,114
        dc.b      121,32,97,103,97,105,110,46,13,10,0
-@lab3_179:
+@lab3_180:
        dc.b      68,69,49,45,54,56,107,32,66,117,103,32,86,49
        dc.b      46,55,55,0
-@lab3_180:
+@lab3_181:
        dc.b      67,111,112,121,114,105,103,104,116,32,40,67
        dc.b      41,32,80,74,32,68,97,118,105,101,115,32,50,48
        dc.b      49,54,0
-@lab3_181:
+@lab3_182:
        dc.b      13,10,13,10,75,101,110,110,121,32,87,97,107
        dc.b      97,98,97,32,45,32,57,49,51,55,56,51,49,53,13
        dc.b      10,74,97,99,111,98,32,89,97,110,103,32,45,32
        dc.b      50,52,57,52,48,56,51,53,0
-@lab3_182:
+@lab3_183:
        dc.b      13,10,82,117,110,110,105,110,103,46,46,46,46
        dc.b      46,0
-@lab3_183:
-       dc.b      82,117,110,110,105,110,103,46,46,46,46,46,0
 @lab3_184:
+       dc.b      82,117,110,110,105,110,103,46,46,46,46,46,0
+@lab3_185:
        dc.b      66,121,58,32,80,74,32,68,97,118,105,101,115
        dc.b      0
-@lab3_185:
+@lab3_186:
        dc.b      13,10,37,115,0
-MemoryTest_test_data_long_word_list:
-       dc.l      -1431655766,-1414812757,-858989091,-1430532899
        section   data
 MemoryTest_test_data_byte_list:
        dc.b      170,171,204,205
 MemoryTest_test_data_word_list:
        dc.l      43690,47802,52445,56797
+MemoryTest_test_data_long_word_list:
+       dc.l      -1431655766,-1414812757,-858989091,-1430532899
        section   bss
        xdef      _i
 _i:

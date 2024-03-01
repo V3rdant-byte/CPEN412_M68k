@@ -576,6 +576,7 @@ void EraseSPIFlashChip(void)
 
 void SPIFlashProgram(int AddressOffset, int ByteData)
 {
+    int readbackdata;
     SendFlashCmd(0x06);  // write enable
 
     Enable_SPI_CS();
@@ -583,7 +584,7 @@ void SPIFlashProgram(int AddressOffset, int ByteData)
     // if (AddressOffset == 0) {
     //     printf("ByteData: 0x%08x", ByteData);
     // }
-    WriteSPIChar(ByteData); // write byte data
+    readbackdata = WriteSPIChar(ByteData); // write byte data
     Disable_SPI_CS();
 
     WaitFlashIdle();  // wait idle
@@ -682,12 +683,20 @@ void LoadFromFlashChip(void)
 
     for (i = 0; i < 1024; i++){
         ReadSPIFlashData(flashAddress, readBuffer, 256);
+        if (i == 0) {
+            if (readBuffer[0] == 0xFF) {
+                printf("garbage value read!\r\n");
+                return;
+            }
+        }
         for (j = 0; j < 256; j++){
             dataPtr[j] = readBuffer[j];
         }
         dataPtr+=256;
         flashAddress+=256;
-        printf(".");
+        if (i % 128 == 0){
+            printf(".");
+        }
     }
     printf("\r\nDone loading.\r\n");
 }

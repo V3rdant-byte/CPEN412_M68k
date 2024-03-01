@@ -16,8 +16,8 @@
 // The working 68k system SOF file posted on canvas that you can use for your pre-lab
 // is based around Dram so #define accordingly before building
 
-#define StartOfExceptionVectorTable 0x08030000
-//#define StartOfExceptionVectorTable 0x0B000000
+//#define StartOfExceptionVectorTable 0x08030000
+#define StartOfExceptionVectorTable 0x0B000000
 
 /**********************************************************************************************
 **	Parallel port addresses
@@ -415,24 +415,29 @@ void main()
 *************************************************************************************************/
 
     scanflush() ;                       // flush any text that may have been typed ahead
-    printf("\r\nEnter Integer: ") ;
-    scanf("%d", &i) ;
-    printf("You entered %d", i) ;
+    // printf("\r\nEnter Integer: ") ;
+    // scanf("%d", &i) ;
+    // printf("You entered %d", i) ;
 
-    sprintf(text, "Hello CPEN 412 Student") ;
-    LCDLine1Message(text) ;
+    // sprintf(text, "Hello CPEN 412 Student") ;
+    // LCDLine1Message(text) ;
 
-    printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
-    printf("\r\nYour LCD should be displaying") ;
+    // printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
+    // printf("\r\nYour LCD should be displaying") ;
 
 
 
     
 
-    while(1)
-        ;
+    // while(1)
+    //     ;
 
    // programs should NOT exit as there is nothing to Exit TO !!!!!!
    // There is no OS - just press the reset button to end program and call debug
+/*************************************************************************************************
+**  Test of SPI function
+*************************************************************************************************/
 
+    printf("User program here \r\n");
+    while(1);
 }
