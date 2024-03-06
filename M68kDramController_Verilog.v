@@ -296,7 +296,7 @@ module M68kDramController_Verilog (
 
 		case(CurrentState)
 			InitialisingState: begin
-				TimerValue = 16'd5000;									// chose a value equivalent to 100us at 50Mhz clock - you might want to shorten it to somthing small for simulation purposes
+				TimerValue = 16'd0007;									// chose a value equivalent to 100us at 50Mhz clock - you might want to shorten it to somthing small for simulation purposes
 				TimerLoad_H = 1 ;										// on next edge of clock, timer will be loaded and start to time out
 				Command = PoweringUp ;									// clock enable and chip select to the Zentel Dram chip must be held low (disabled) during a power up phase
 				NextState = WaitingForPowerUpState ;				// once we have loaded the timer, go to a new state where we wait for the 100us to elapse
