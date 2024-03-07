@@ -1,4 +1,4 @@
-module AddressComparaotr (
+module AddressComparator (
 		input [22:0] AddressBus,
         input [22:0] TagData,
         output reg Hit_H

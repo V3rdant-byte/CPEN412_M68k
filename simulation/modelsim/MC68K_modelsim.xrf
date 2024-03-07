@@ -1,4 +1,5 @@
 vendor_name = ModelSim
+source_file = 1, D:/CPEN412/M68k/M68kCacheController.v
 source_file = 1, D:/CPEN412/M68k/OnChipRom16KWord.qip
 source_file = 1, D:/CPEN412/M68k/OnChipRom16KWord.v
 source_file = 1, D:/CPEN412/M68k/Waveform68k-V15.0-DE1SoC.vwf
@@ -75,6 +76,8 @@ source_file = 1, D:/CPEN412/M68k/CacheData.qip
 source_file = 1, D:/CPEN412/M68k/CacheData.v
 source_file = 1, D:/CPEN412/M68k/CacheDataMemory.bdf
 source_file = 1, D:/CPEN412/M68k/AddressComparator.v
+source_file = 1, D:/CPEN412/M68k/DramCache.bdf
+source_file = 1, D:/CPEN412/M68k/CacheEnabledDramController.vhd
 source_file = 1, c:/intelfpga_lite/18.1/quartus/libraries/vhdl/ieee/prmtvs_b.vhd
 source_file = 1, c:/intelfpga_lite/18.1/quartus/libraries/vhdl/ieee/prmtvs_p.vhd
 source_file = 1, c:/intelfpga_lite/18.1/quartus/libraries/vhdl/ieee/timing_b.vhd

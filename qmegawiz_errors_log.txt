@@ -113,3 +113,8 @@ C:/M68kV6.0 - 640by480/ClockGen.vhd
 
 Jun 01 06PM:48:39>: Megafunction Altera PLL v16.0 is not listed in any 
 wizard.lst file in the specified library path(s).Wizard launch aborted
+
+D:/CPEN412/M68k/lpm_bustri0.vhd
+
+Mar 06 06PM:50:50>: Megafunction LPM_BUSTRI is not listed in any 
+wizard.lst file in the specified library path(s).Wizard launch aborted
