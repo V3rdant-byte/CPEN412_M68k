@@ -126,7 +126,7 @@ end architecture rtl; -- of ClockGen
 -- Retrieval info: 	<generic name="gui_ps_units3" value="degrees" />
 -- Retrieval info: 	<generic name="gui_phase_shift3" value="0" />
 -- Retrieval info: 	<generic name="gui_phase_shift_deg3" value="180.0" />
--- Retrieval info: 	<generic name="gui_actual_phase_shift3" value="230.0 deg" />
+-- Retrieval info: 	<generic name="gui_actual_phase_shift3" value="220.0 deg" />
 -- Retrieval info: 	<generic name="gui_duty_cycle3" value="50" />
 -- Retrieval info: 	<generic name="gui_cascade_counter4" value="false" />
 -- Retrieval info: 	<generic name="gui_output_clock_frequency4" value="100.0" />
