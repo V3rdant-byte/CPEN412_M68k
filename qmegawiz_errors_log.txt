@@ -113,3 +113,42 @@ C:/M68kV6.0 - 640by480/ClockGen.vhd
 
 Jun 01 06PM:48:39>: Megafunction Altera PLL v16.0 is not listed in any 
 wizard.lst file in the specified library path(s).Wizard launch aborted
+
+D:/CPEN412/M68k/PseudoLRU_Bits.v
+
+Mar 14 03PM:54:56>: The following design file, which has identical name but a different extension 
+from the specified variation file, already exists in the working directory:
+
+PseudoLRU_Bits.bdf
+
+This may create a conflict of design files and/or lead to undesirable side
+effects.
+
+Is it OK to continue file generation?
+
+D:/CPEN412/M68k/PseudoLRU_Bits.v
+
+Mar 14 03PM:55:54>: The following design file, which has identical name but a different extension 
+from the specified variation file, already exists in the working directory:
+
+PseudoLRU_Bits.bdf
+
+This may create a conflict of design files and/or lead to undesirable side
+effects.
+
+Is it OK to continue file generation?
+
+D:/CPEN412/M68k/lpm_bustri0.vhd
+
+Mar 14 05PM:21:30>: Megafunction LPM_BUSTRI is not listed in any 
+wizard.lst file in the specified library path(s).Wizard launch aborted
+
+D:/CPEN412/M68k/lpm_bustri0.vhd
+
+Mar 14 05PM:21:31>: Megafunction LPM_BUSTRI is not listed in any 
+wizard.lst file in the specified library path(s).Wizard launch aborted
+
+D:/CPEN412/M68k/lpm_bustri0.vhd
+
+Mar 14 05PM:21:32>: Megafunction LPM_BUSTRI is not listed in any 
+wizard.lst file in the specified library path(s).Wizard launch aborted
