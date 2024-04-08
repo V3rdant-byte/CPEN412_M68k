@@ -1,8 +1,9 @@
-module SPI_BUS_Decoder (
+module IIC_SPI_BUS_Decoder (
 	input unsigned [31:0] Address,
-	input SPI_Select_H,
+	input IO_Select_H,
 	input AS_L,
-	output reg SPI_Enable_H
+	output reg SPI_Enable_H,
+	output reg IIC0_Enable_H
 );
 
 always@(*) begin
@@ -16,7 +17,7 @@ always@(*) begin
 		// in conjunction with SPI_Select_H (think about it)
 		//  AS_L must be included in decoder decision making to make sure only 1 clock edge seen by 
 		// SPI controller per 68k read/write. You don’t have to do anything more.
-	SPI_Enable_H = (Address[15:4] == 12'h802) && (SPI_Select_H == 1) && (AS_L == 0);
-		
+	SPI_Enable_H = (Address[15:4] == 12'h802) && (IO_Select_H == 1) && (AS_L == 0);
+	IIC0_Enable_H = (Address[15:4] == 12'h800) && (IO_Select_H == 1) && (AS_L == 0);
 end
 endmodule

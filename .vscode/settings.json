@@ -6,6 +6,10 @@
         "MD.C": "cpp",
         "MDnod.C": "cpp",
         "MUP.C": "cpp",
-        "lab3.C": "cpp"
+        "lab3.C": "cpp",
+        "st.C": "cpp",
+        "I2C.C": "cpp",
+        "SPI.C": "cpp",
+        "lab6.C": "cpp"
     }
 }

@@ -153,6 +153,19 @@ void WriteSPIFlashData(int FlashAddress, unsigned char *MemoryAddress, int size)
 void EraseSPIFlashChip(void);
 void EraseSPIFlashSector(int SectorNumber) ;
 
+// I2C prototypes
+void I2C_Init(void);
+void WriteI2CInteraction(int block, unsigned int Address, unsigned char AddressMSB, unsigned char AddressLSB, unsigned char data, int flag);
+void PageWriteI2CInteraction(unsigned int AddressFrom, unsigned int AddressTo, unsigned char data);
+void ReadI2CByteInteraction(int block, unsigned int Address, unsigned char AddressMSB, unsigned char AddressLSB);
+void ReadI2CSequential(int block, int AddressTo, int AddressFrom,  unsigned int ChipAddress);
+void DACWrite(void);
+void ADCWrite(void);
+void WriteI2C(void);
+void ReadI2C(void);
+void PageWriteI2C(void);
+void SeqReadI2C(void);
+
 
 // other prototypes
 void Init_RS232(void) ;
