@@ -1,40 +1,6 @@
 ; D:\CPEN412\M68K\PROGRAMS\DEMOCO\I2C.C - Compiled by CC68K  Version 5.00 (c) 1991-2005  Peter J. Fondse
 ; #include <stdio.h>
-; //////////////////////////////
-; // I2C Controller Registers //
-; //////////////////////////////
-; #define I2C_CLK_PRESCALE_LOW (*(volatile unsigned char *)(0x00408000))
-; #define I2C_CLK_PRESCALE_HIGH (*(volatile unsigned char *)(0x00408002))
-; #define I2C_CTRL (*(volatile unsigned char *)(0x00408004))
-; #define I2C_TX (*(volatile unsigned char *)(0x00408006))
-; #define I2C_RX (*(volatile unsigned char *)(0x00408006))
-; #define I2C_CMD (*(volatile unsigned char *)(0x00408008))
-; #define I2C_STAT (*(volatile unsigned char *)(0x00408008))
-; //////////////////
-; // I2C Commands //
-; //////////////////
-; #define I2C_CMD_Slave_Write_With_Start 0x91 // 1001 0001
-; #define I2C_CMD_Slave_Read_With_Start 0xA9  // 1010 1001
-; #define I2C_CMD_Slave_Write 0x11            // 0001 0001
-; #define I2C_CMD_Slave_Read 0x21             // 0010 0001
-; #define I2C_CMD_Slave_Read_Ack 0x29         // 0010 1001
-; #define I2C_CMD_Slave_Write_Stop 0x51       // 0101 0001
-; #define I2C_CMD_Slave_Read_Stop 0x49        // 0100 1001
-; /////////////////////
-; // EEPROM Commands //
-; /////////////////////
-; #define EEPROM_Write_Block_1 0xA2           // 1010 0010
-; #define EEPROM_Read_Block_1 0xA3            // 1010 0011
-; #define EEPROM_Write_Block_0 0xA0           // 1010 0000
-; #define EEPROM_Read_Block_0 0xA1            // 1010 0001
-; //////////////////////
-; // ADC/DAC Commands //
-; //////////////////////
-; #define ADC_DAC_Write_Address 0x90          // 1001 0000
-; #define ADC_Read_Address 0x91               // 1001 0001
-; #define ADC_CMD_Enable 0x44                 // 0100 0100
-; #define DAC_CMD_Enable 0x40                 // 0100 0000
-; #define Enable_I2C_Controller() I2C_CTRL = 0x80     // 1000 0000
+; #include "I2C.H"
 ; void Enable_SCL(void){
        section   code
        xdef      _Enable_SCL
@@ -902,29 +868,22 @@ DACWrite_9:
 ; ///////////////////////////////////////////////
 ; // generate a waveform (square wave) via DAC //
 ; ///////////////////////////////////////////////
-; void ADCWrite(void){
-       xdef      _ADCWrite
-_ADCWrite:
+; char ADCRead(int arg){
+       xdef      _ADCRead
+_ADCRead:
        link      A6,#-8
-       movem.l   A2/A3/A4,-(A7)
+       movem.l   D2/D3/A2/A3,-(A7)
        lea       _WaitTIP.L,A2
+       move.l    8(A6),D3
        lea       _WaitACK.L,A3
-       lea       _printf.L,A4
 ; unsigned char thermistor_value;
 ; unsigned char potentiometer_value;
 ; unsigned char photo_resistor_value;
 ; unsigned int delay = 0xFFFFF;
        move.l    #1048575,-4(A6)
-; printf("I2C ADC Read:\n");
-       pea       @i2c_6.L
-       jsr       (A4)
-       addq.w    #4,A7
-; printf("\n==============================Measuring==============================\n");
-       pea       @i2c_7.L
-       jsr       (A4)
-       addq.w    #4,A7
-; while (1) {
-ADCWrite_1:
+; unsigned char result;
+; // printf("I2C ADC Read:\n");
+; // printf("\n==============================Measuring==============================\n");
 ; WaitTIP();
        jsr       (A2)
 ; I2C_TX = ADC_DAC_Write_Address;
@@ -976,21 +935,45 @@ ADCWrite_1:
        jsr       (A2)
 ; photo_resistor_value = I2C_RX;
        move.b    4227078,-5(A6)
-; printf("Value of Thermistor: %d Potentiometer: %d Photo-resister: %d\n", thermistor_value, potentiometer_value, photo_resistor_value);
-       move.b    -5(A6),D1
-       and.l     #255,D1
-       move.l    D1,-(A7)
-       move.b    -6(A6),D1
-       and.l     #255,D1
-       move.l    D1,-(A7)
-       move.b    -7(A6),D1
-       and.l     #255,D1
-       move.l    D1,-(A7)
-       pea       @i2c_8.L
-       jsr       (A4)
-       add.w     #16,A7
-       bra       ADCWrite_1
-; }
+; result = 0;
+       clr.b     D2
+; if (arg == 0) {
+       tst.l     D3
+       bne.s     ADCRead_1
+; // printf("Value of Thermistor: %d\n", thermistor_value);
+; result = thermistor_value;
+       move.b    -7(A6),D2
+       bra.s     ADCRead_7
+ADCRead_1:
+; } else if (arg == 1) {
+       cmp.l     #1,D3
+       bne.s     ADCRead_3
+; // printf("Value of Potentiometer: %d\n", potentiometer_value);
+; result = potentiometer_value;
+       move.b    -6(A6),D2
+       bra.s     ADCRead_7
+ADCRead_3:
+; } else if (arg == 2) {
+       cmp.l     #2,D3
+       bne.s     ADCRead_5
+; // printf("Value of Photo-resister: %d\n", photo_resistor_value);
+; result = photo_resistor_value;
+       move.b    -5(A6),D2
+       bra.s     ADCRead_7
+ADCRead_5:
+; } else if (arg == 3) {
+       cmp.l     #3,D3
+       bne.s     ADCRead_7
+; // printf("Value of Thermistor: %d Potentiometer: %d Photo-resister: %d\n", thermistor_value, potentiometer_value, photo_resistor_value);
+; result = 0xff;
+       move.b    #255,D2
+ADCRead_7:
+; } 
+; return result;
+       move.b    D2,D0
+       movem.l   (A7)+,D2/D3/A2/A3
+       unlk      A6
+       rts
 ; }
        section   const
 @i2c_1:
@@ -1014,20 +997,5 @@ ADCWrite_1:
        dc.b      10,73,50,67,32,68,65,67,32,87,114,105,116,101
        dc.b      58,32,80,108,101,97,115,101,32,99,104,101,99
        dc.b      107,32,76,69,68,10,0
-@i2c_6:
-       dc.b      73,50,67,32,65,68,67,32,82,101,97,100,58,10
-       dc.b      0
-@i2c_7:
-       dc.b      10,61,61,61,61,61,61,61,61,61,61,61,61,61,61
-       dc.b      61,61,61,61,61,61,61,61,61,61,61,61,61,61,61
-       dc.b      61,77,101,97,115,117,114,105,110,103,61,61,61
-       dc.b      61,61,61,61,61,61,61,61,61,61,61,61,61,61,61
-       dc.b      61,61,61,61,61,61,61,61,61,61,61,61,10,0
-@i2c_8:
-       dc.b      86,97,108,117,101,32,111,102,32,84,104,101,114
-       dc.b      109,105,115,116,111,114,58,32,37,100,32,80,111
-       dc.b      116,101,110,116,105,111,109,101,116,101,114
-       dc.b      58,32,37,100,32,80,104,111,116,111,45,114,101
-       dc.b      115,105,115,116,101,114,58,32,37,100,10,0
        xref      ULDIV
        xref      _printf

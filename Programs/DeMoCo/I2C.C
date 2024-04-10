@@ -1,44 +1,5 @@
 #include <stdio.h>
-
-//////////////////////////////
-// I2C Controller Registers //
-//////////////////////////////
-#define I2C_CLK_PRESCALE_LOW (*(volatile unsigned char *)(0x00408000))
-#define I2C_CLK_PRESCALE_HIGH (*(volatile unsigned char *)(0x00408002))
-#define I2C_CTRL (*(volatile unsigned char *)(0x00408004))
-#define I2C_TX (*(volatile unsigned char *)(0x00408006))
-#define I2C_RX (*(volatile unsigned char *)(0x00408006))
-#define I2C_CMD (*(volatile unsigned char *)(0x00408008))
-#define I2C_STAT (*(volatile unsigned char *)(0x00408008))
-
-//////////////////
-// I2C Commands //
-//////////////////
-#define I2C_CMD_Slave_Write_With_Start 0x91 // 1001 0001
-#define I2C_CMD_Slave_Read_With_Start 0xA9  // 1010 1001
-#define I2C_CMD_Slave_Write 0x11            // 0001 0001
-#define I2C_CMD_Slave_Read 0x21             // 0010 0001
-#define I2C_CMD_Slave_Read_Ack 0x29         // 0010 1001
-#define I2C_CMD_Slave_Write_Stop 0x51       // 0101 0001
-#define I2C_CMD_Slave_Read_Stop 0x49        // 0100 1001
-
-/////////////////////
-// EEPROM Commands //
-/////////////////////
-#define EEPROM_Write_Block_1 0xA2           // 1010 0010
-#define EEPROM_Read_Block_1 0xA3            // 1010 0011
-#define EEPROM_Write_Block_0 0xA0           // 1010 0000
-#define EEPROM_Read_Block_0 0xA1            // 1010 0001
-
-//////////////////////
-// ADC/DAC Commands //
-//////////////////////
-#define ADC_DAC_Write_Address 0x90          // 1001 0000
-#define ADC_Read_Address 0x91               // 1001 0001
-#define ADC_CMD_Enable 0x44                 // 0100 0100
-#define DAC_CMD_Enable 0x40                 // 0100 0000
-
-#define Enable_I2C_Controller() I2C_CTRL = 0x80     // 1000 0000
+#include "I2C.H"
 
 void Enable_SCL(void){
     I2C_CLK_PRESCALE_LOW = 0x31;
@@ -479,56 +440,69 @@ void DACWrite(void) {
 ///////////////////////////////////////////////
 // generate a waveform (square wave) via DAC //
 ///////////////////////////////////////////////
-void ADCWrite(void){
+char ADCRead(int arg){
     unsigned char thermistor_value;
     unsigned char potentiometer_value;
     unsigned char photo_resistor_value;
     unsigned int delay = 0xFFFFF;
+    unsigned char result;
 
-    printf("I2C ADC Read:\n");
-    printf("\n==============================Measuring==============================\n");
+    // printf("I2C ADC Read:\n");
+    // printf("\n==============================Measuring==============================\n");
 
-    while (1) {
+    WaitTIP();
 
-        WaitTIP();
+    I2C_TX = ADC_DAC_Write_Address;
+    I2C_CMD = I2C_CMD_Slave_Write_With_Start;
 
-        I2C_TX = ADC_DAC_Write_Address;
-        I2C_CMD = I2C_CMD_Slave_Write_With_Start;
+    WaitTIP();
+    WaitACK();
 
-        WaitTIP();
-        WaitACK();
+    I2C_TX = ADC_CMD_Enable;
+    I2C_CMD = I2C_CMD_Slave_Write;
 
-        I2C_TX = ADC_CMD_Enable;
-        I2C_CMD = I2C_CMD_Slave_Write;
+    WaitTIP();
+    WaitACK();
 
-        WaitTIP();
-        WaitACK();
+    I2C_TX = ADC_Read_Address;
+    I2C_CMD = I2C_CMD_Slave_Write_With_Start;
 
-        I2C_TX = ADC_Read_Address;
-        I2C_CMD = I2C_CMD_Slave_Write_With_Start;
+    WaitTIP();
+    WaitACK();
 
-        WaitTIP();
-        WaitACK();
+    I2C_CMD = I2C_CMD_Slave_Read;
 
-        I2C_CMD = I2C_CMD_Slave_Read;
+    WaitTIP();
 
-        WaitTIP();
+    // measure thermistor 
+    I2C_CMD = I2C_CMD_Slave_Read;
+    WaitTIP();
+    thermistor_value = I2C_RX;
 
-        // measure thermistor 
-        I2C_CMD = I2C_CMD_Slave_Read;
-        WaitTIP();
-        thermistor_value = I2C_RX;
+    // measure potentiometer 
+    I2C_CMD = I2C_CMD_Slave_Read;
+    WaitTIP();
+    potentiometer_value = I2C_RX;
 
-        // measure potentiometer 
-        I2C_CMD = I2C_CMD_Slave_Read;
-        WaitTIP();
-        potentiometer_value = I2C_RX;
+    // measure photo resistor 
+    I2C_CMD = I2C_CMD_Slave_Read;
+    WaitTIP();
+    photo_resistor_value = I2C_RX;
 
-        // measure photo resistor 
-        I2C_CMD = I2C_CMD_Slave_Read;
-        WaitTIP();
-        photo_resistor_value = I2C_RX;
+    result = 0;
 
-        printf("Value of Thermistor: %d Potentiometer: %d Photo-resister: %d\n", thermistor_value, potentiometer_value, photo_resistor_value);
-    }
+    if (arg == 0) {
+        // printf("Value of Thermistor: %d\n", thermistor_value);
+        result = thermistor_value;
+    } else if (arg == 1) {
+        // printf("Value of Potentiometer: %d\n", potentiometer_value);
+        result = potentiometer_value;
+    } else if (arg == 2) {
+        // printf("Value of Photo-resister: %d\n", photo_resistor_value);
+        result = photo_resistor_value;
+    } else if (arg == 3) {
+        // printf("Value of Thermistor: %d Potentiometer: %d Photo-resister: %d\n", thermistor_value, potentiometer_value, photo_resistor_value);
+        result = 0xff;
+    } 
+    return result;
 }

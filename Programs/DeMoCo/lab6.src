@@ -17632,7 +17632,7 @@ _Task2:
        jsr       _Timer1_Init
 ; for (;;) {
 Task2_1:
-; printf("This is Task #2 counting up at the rate of 10 Hz\n");
+; printf("This is Task #2 counting up at the rate of 0.2 Hz\n");
        pea       @lab6_4.L
        jsr       _printf
        addq.w    #4,A7
@@ -17643,8 +17643,8 @@ Task2_1:
        addq.w    #4,A7
 ; count++;
        addq.b    #1,D2
-; OSTimeDly(10);
-       pea       10
+; OSTimeDly(500);
+       pea       500
        jsr       _OSTimeDly
        addq.w    #4,A7
        bra       Task2_1
@@ -17659,7 +17659,7 @@ _Task3:
        clr.b     D2
 ; for (;;) {
 Task3_1:
-; printf("This is Task #3 counting up at the rate of 1 Hz\n");
+; printf("This is Task #3 counting up at the rate of 2 Hz\n");
        pea       @lab6_5.L
        jsr       _printf
        addq.w    #4,A7
@@ -17670,8 +17670,8 @@ Task3_1:
        addq.w    #4,A7
 ; count++;
        addq.b    #1,D2
-; OSTimeDly(100);
-       pea       100
+; OSTimeDly(50);
+       pea       50
        jsr       _OSTimeDly
        addq.w    #4,A7
        bra       Task3_1
@@ -18880,12 +18880,12 @@ _OSUnMapTbl:
        dc.b      84,104,105,115,32,105,115,32,84,97,115,107,32
        dc.b      35,50,32,99,111,117,110,116,105,110,103,32,117
        dc.b      112,32,97,116,32,116,104,101,32,114,97,116,101
-       dc.b      32,111,102,32,49,48,32,72,122,10,0
+       dc.b      32,111,102,32,48,46,50,32,72,122,10,0
 @lab6_5:
        dc.b      84,104,105,115,32,105,115,32,84,97,115,107,32
        dc.b      35,51,32,99,111,117,110,116,105,110,103,32,117
        dc.b      112,32,97,116,32,116,104,101,32,114,97,116,101
-       dc.b      32,111,102,32,49,32,72,122,10,0
+       dc.b      32,111,102,32,50,32,72,122,10,0
 @lab6_6:
        dc.b      84,104,105,115,32,105,115,32,84,97,115,107,32
        dc.b      35,52,32,99,111,117,110,116,105,110,103,32,117

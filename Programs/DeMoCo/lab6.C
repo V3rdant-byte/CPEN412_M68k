@@ -91,10 +91,10 @@ void Task2(void *pdata)
     unsigned char count = 0;
     Timer1_Init() ;      // this function is in BIOS.C and written by us to start timer      
     for (;;) {
-       printf("This is Task #2 counting up at the rate of 10 Hz\n");
+       printf("This is Task #2 counting up at the rate of 0.2 Hz\n");
        display(count);
        count++;
-       OSTimeDly(10);
+       OSTimeDly(500);
     }
 }
 
@@ -102,10 +102,10 @@ void Task3(void *pdata)
 {
     unsigned char count = 0;
     for (;;) {
-       printf("This is Task #3 counting up at the rate of 1 Hz\n");
+       printf("This is Task #3 counting up at the rate of 2 Hz\n");
        display(count);
        count++;
-       OSTimeDly(100);
+       OSTimeDly(50);
     }
 }
 

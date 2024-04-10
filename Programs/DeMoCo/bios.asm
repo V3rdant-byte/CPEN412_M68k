@@ -1,5 +1,7 @@
 ; C:\IDE68K\UCOSII\BIOS.C - Compiled by CC68K  Version 5.00 (c) 1991-2005  Peter J. Fondse
 ; #include <Bios.h>
+; #include "canbus.H"
+; #include "I2C.H"
 ; /*
 ; **  These basic IO routines are designed to handle input and output of characters
 ; **  via the serial port to the console of hyperternal
@@ -15,6 +17,7 @@
 ; /*********************************************************************************************
 ; *Subroutine to initialise the RS232 Port by writing some commands to the internal registers
 ; *********************************************************************************************/
+; unsigned char Timer1Count = 0;
 ; void Init_RS232(void)
 ; {
        section   code
@@ -302,13 +305,96 @@ _Oline1:
 ; {
        xdef      _Timer_ISR
 _Timer_ISR:
-; if(Timer1Status == 1) {       // Did Timer 1 produce the Interrupt?
+       movem.l   A2/A3,-(A7)
+       lea       _CanBus0_Transmit.L,A2
+       lea       _ADCRead.L,A3
+; // if(Timer1Status == 1) {       // Did Timer 1 produce the Interrupt?
+; //     Timer1Control = 3;      	// if so clear interrupt and restart timer
+; // }
+; if(Timer1Status == 1) {         // Did Timer 1 produce the Interrupt?
        move.b    4194354,D0
        cmp.b     #1,D0
-       bne.s     Timer_ISR_1
-; Timer1Control = 3;      	// if so clear interrupt and restart timer
+       bne       Timer_ISR_1
+; CanBus0_Transmit(0, PortA); // every 100ms
+       move.b    4194304,D1
+       ext.w     D1
+       ext.l     D1
+       move.l    D1,-(A7)
+       clr.l     -(A7)
+       jsr       (A2)
+       addq.w    #8,A7
+; if (Timer1Count % 2 == 0) {
+       move.b    _Timer1Count.L,D0
+       and.l     #65535,D0
+       divu.w    #2,D0
+       swap      D0
+       tst.b     D0
+       bne.s     Timer_ISR_3
+; CanBus0_Transmit(1, ADCRead(1)); // read the value of the ADC potentiometer(from Lab 5) every 200ms
+       move.l    D0,-(A7)
+       pea       1
+       jsr       (A3)
+       addq.w    #4,A7
+       move.l    D0,D1
+       move.l    (A7)+,D0
+       ext.w     D1
+       ext.l     D1
+       move.l    D1,-(A7)
+       pea       1
+       jsr       (A2)
+       addq.w    #8,A7
+Timer_ISR_3:
+; }
+; if (Timer1Count % 5 == 0) {
+       move.b    _Timer1Count.L,D0
+       and.l     #65535,D0
+       divu.w    #5,D0
+       swap      D0
+       tst.b     D0
+       bne.s     Timer_ISR_5
+; CanBus0_Transmit(2, ADCRead(2));
+       move.l    D0,-(A7)
+       pea       2
+       jsr       (A3)
+       addq.w    #4,A7
+       move.l    D0,D1
+       move.l    (A7)+,D0
+       ext.w     D1
+       ext.l     D1
+       move.l    D1,-(A7)
+       pea       2
+       jsr       (A2)
+       addq.w    #8,A7
+Timer_ISR_5:
+; }
+; if (Timer1Count % 20 == 0) {
+       move.b    _Timer1Count.L,D0
+       and.l     #65535,D0
+       divu.w    #20,D0
+       swap      D0
+       tst.b     D0
+       bne.s     Timer_ISR_7
+; CanBus0_Transmit(3, ADCRead(3));
+       move.l    D0,-(A7)
+       pea       3
+       jsr       (A3)
+       addq.w    #4,A7
+       move.l    D0,D1
+       move.l    (A7)+,D0
+       ext.w     D1
+       ext.l     D1
+       move.l    D1,-(A7)
+       pea       3
+       jsr       (A2)
+       addq.w    #8,A7
+Timer_ISR_7:
+; }
+; Timer1Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
        move.b    #3,4194354
+; Timer1Count++ ;     
+       addq.b    #1,_Timer1Count.L
 Timer_ISR_1:
+       movem.l   (A7)+,A2/A3
        rts
 ; }
 ; }
@@ -348,10 +434,24 @@ _Timer1_Init:
 ; **
 ; **	see main below for other examples
 ; ***********************************************************************************************************************************/
-; /*
 ; void InstallExceptionHandler( void (*function_ptr)(), int level)
 ; {
+       xdef      _InstallExceptionHandler
+_InstallExceptionHandler:
+       link      A6,#-4
 ; volatile long int *RamVectorAddress = (volatile long int *)(StartOfExceptionVectorTable) ;   // pointer to the Ram based interrupt vector table created in Cstart in debug monitor
+       move.l    #184549376,-4(A6)
 ; RamVectorAddress[level] = (long int *)(function_ptr);                       // install the address of our function into the exception table
+       move.l    -4(A6),A0
+       move.l    12(A6),D0
+       lsl.l     #2,D0
+       move.l    8(A6),0(A0,D0.L)
+       unlk      A6
+       rts
 ; }
-; */
+       section   data
+       xdef      _Timer1Count
+_Timer1Count:
+       dc.b      0
+       xref      _ADCRead
+       xref      _CanBus0_Transmit

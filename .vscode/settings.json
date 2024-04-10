@@ -10,6 +10,12 @@
         "st.C": "cpp",
         "I2C.C": "cpp",
         "SPI.C": "cpp",
-        "lab6.C": "cpp"
+        "lab6.C": "cpp",
+        "canbus.C": "cpp",
+        "lab6B.C": "cpp",
+        "lab6Bt.C": "cpp",
+        "lab6a.C": "cpp",
+        "lab6bi.C": "cpp",
+        "lab6m.C": "cpp"
     }
 }

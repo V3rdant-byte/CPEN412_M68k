@@ -160,7 +160,7 @@ void PageWriteI2CInteraction(unsigned int AddressFrom, unsigned int AddressTo, u
 void ReadI2CByteInteraction(int block, unsigned int Address, unsigned char AddressMSB, unsigned char AddressLSB);
 void ReadI2CSequential(int block, int AddressTo, int AddressFrom,  unsigned int ChipAddress);
 void DACWrite(void);
-void ADCWrite(void);
+char ADCRead(int);
 void WriteI2C(void);
 void ReadI2C(void);
 void PageWriteI2C(void);

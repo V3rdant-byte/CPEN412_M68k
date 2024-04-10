@@ -44,6 +44,8 @@ module AddressDecoder_Verilog (
 			DramSelect_H <= 1;
 		if(Address[31:18] == 14'b1111_0000_0000_00) 			// address hex F0000 0000 - F003 FFFF Partial decoding - 256kbytes
 			OnChipRamSelect_H <= 1 ;
+		if(Address[31:16] == 16'h0050)
+			CanBusSelect_H <= 1;
 		
 		end
 endmodule
